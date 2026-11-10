@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thunder Plugin Validation - entservices-xcast</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cmake.min.js"></script>
+<script>hljs.highlightAll();</script>
+<style>
+  body { font-family: sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #24292f; line-height: 1.6; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 10px; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 6px; margin-top: 40px; }
+  h3 { margin-top: 30px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f6f8fa; font-weight: 600; }
+  tr:nth-child(even) { background: #f6f8fa; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; }
+  code { font-family: monospace; font-size: 13px; }
+  p > code, li > code, td > code { background: #eef0f3; padding: 2px 5px; border-radius: 3px; }
+  .back-link { font-size: 13px; color: #0969da; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 30px 0; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; }
+  .b-confirmed { background: #cf222e; }
+  .b-partial { background: #d9730d; }
+  .b-fp { background: #1a7f37; }
+  .b-ctx { background: #6e7781; }
+</style>
+</head>
+<body>
+<h1>Thunder Plugin Validation - entservices-xcast</h1>
+<p><strong>Date:</strong> 2026-11-10<br>
+<strong>Repo:</strong> https://github.com/rdkcentral/entservices-xcast.git<br>
+<strong>Branch | Commit:</strong> develop | e5aab22<br>
+<strong>Source report:</strong> entservices-xcast_2026-11-10.html<br>
+<strong>Total findings:</strong> 26 | <strong>Confirmed:</strong> 17 | <strong>Partially valid:</strong> 5 | <strong>False positives:</strong> 3 | <strong>Needs context:</strong> 1 | <strong>False-positive rate:</strong> 11.5%</p>
+<hr>
+<h2 id="validation-summary">Validation Summary</h2>
+<p>XCast (callsign <code>org.rdk.Xcast</code>) is a Thunder plugin that provides DIAL/Cast discovery through the <code>gdial-server</code> library. A thin wrapper (<code>XCast</code>) exposes the JSON-RPC API and forwards events, while <code>XCastImplementation</code> (out-of-process by default, mode <code>Local</code>) talks to PowerManager, NetworkManager, SystemServices, AppManager and AppActions, and drives the gdial service via <code>XCastManager</code> (<code>XCast/XCast.cpp:94</code>, <code>XCast/CMakeLists.txt:24</code>, <code>XCast/XCastImplementation.cpp:341-345</code>).</p>
+<p>Result of re-verifying all 26 findings against the source at commit e5aab22: 17 CONFIRMED, 5 PARTIALLY VALID, 3 FALSE POSITIVE, 1 NEEDS MORE CONTEXT. False-positive rate: 11.5% (3/26 false positives); 30.8% (8/26) if partially valid findings are counted as well.</p>
+<p>Several findings share a root cause (2/18, 4/17, 11/12/19/21, 25/26), so the 26 entries reduce to roughly 21 distinct issues.</p>
+<p>Advisor strengths here: it found the real defects, namely untracked detached threads and a bounded 5 s wait in teardown (issues 11, 12), unsynchronised shared state including a <code>std::string</code> (issue 8), cached cross-plugin proxies (issues 2, 18), the ASSERT on an optional interface (issues 4, 17) and the late <code>_xcast = nullptr</code> (issue 1). Line numbers for the implementation files were mostly accurate.</p>
+<p>Advisor weaknesses here: it applied generic rules that contradict this repo's own guidelines (issue 3, issue 14, and issue 22 whose fix would turn autostart on); it recommended wrappers or config classes that do not exist in this repo (issues 18, 23); it counted duplicates as separate findings; three cited line numbers are wrong (issues 16, 18, 24); and it missed related defects, listed under Additional Observations, such as the self-wait and resource loss in the power-restart path.</p>
+<p>Reviewed: 26/26. No source file was modified. Nothing was built or run.</p>
+<table>
+<thead><tr><th>Issue No.</th><th>Rule</th><th>File</th><th>Line</th><th>Original Severity</th><th>Validation Status</th><th>Actual Severity</th><th>One-line Justification</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><a href="#issue-1">rule_08 - nullptr After Release</a></td><td>XCast.cpp</td><td>149</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>LOW</td><td><code>_xcast</code> is only nulled after <code>Terminate()</code>; a short, real window exists but nothing in Deinitialize dereferences it.</td></tr>
+<tr><td>2</td><td><a href="#issue-2">rule_09 - QueryInterfaceByCallsign Lifetime</a></td><td>XCastImplementation.cpp</td><td>263</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>All four proxies are cached for the plugin lifetime, which this repo's own guideline lists as an incorrect pattern.</td></tr>
+<tr><td>3</td><td><a href="#issue-3">rule_15 - Plugin Metadata Registration</a></td><td>XCast.cpp</td><td>29</td><td>❌ VIOLATION</td><td><span class="badge b-fp">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>The repo's own standard prescribes exactly this combination; removing <code>SERVICE_REGISTRATION</code> would contradict it.</td></tr>
+<tr><td>4</td><td><a href="#issue-4">rule_27 - Partial Initialization Cleanup</a></td><td>XCastImplementation.cpp</td><td>190</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>LOW</td><td>Optional interface asserted before the guard; safe in release builds, aborts in debug builds when PowerManager is missing.</td></tr>
+<tr><td>5</td><td><a href="#issue-5">rule_31 - No Hardcoded Paths</a></td><td>XCastManager.cpp</td><td>32</td><td>❌ VIOLATION</td><td><span class="badge b-partial">PARTIALLY VALID</span></td><td>LOW</td><td>Literals are real, but they are fixed RDK platform contract files and no repo guideline requires making them configurable.</td></tr>
+<tr><td>6</td><td><a href="#issue-6">rule_37 - CXX_STANDARD Uses Thunder Variable</a></td><td>CMakeLists.txt</td><td>51</td><td>❌ VIOLATION</td><td><span class="badge b-ctx">NEEDS MORE CONTEXT</span></td><td>LOW</td><td>Literal 11 is confirmed, but <code>${CXX_STD}</code> is not defined anywhere in this repo, so the advisor's fix cannot be verified.</td></tr>
+<tr><td>7</td><td><a href="#issue-7">rule_41 - Reverse-Order Cleanup</a></td><td>XCastImplementation.cpp</td><td>190</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>LOW</td><td>Teardown is in acquisition order, contrary to the repo guideline; the interfaces are independent so impact is low.</td></tr>
+<tr><td>8</td><td><a href="#issue-8">rule_47 - Shared State Protected by CriticalSection</a></td><td>XCastImplementation.h</td><td>181</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>Plain (non-atomic) globals/statics, including a <code>std::string</code>, are written and read from callback, worker, timer and RPC threads.</td></tr>
+<tr><td>9</td><td><a href="#issue-9">rule_53 - Handler Registration Order in Initialize/Deinitialize</a></td><td>XCast.cpp</td><td>169</td><td>❌ VIOLATION</td><td><span class="badge b-partial">PARTIALLY VALID</span></td><td>LOW</td><td>Ordering concern is real (shell unregister happens last, after <code>Terminate()</code>), but the advisor misnames the interface and the likely effect is benign.</td></tr>
+<tr><td>10</td><td><a href="#issue-10">rule_54 - Core::ERROR_* Return Values</a></td><td>XCastImplementation.cpp</td><td>969</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>INFORMATIONAL</td><td>Both raw <code>0</code> returns exist; <code>Core::ERROR_NONE</code> is the expected 0, so this is style only.</td></tr>
+<tr><td>11</td><td><a href="#issue-11">rule_61 - Plugin Threads Joined in Deinitialize</a></td><td>XCastImplementation.h</td><td>176</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>Three detached thread sites; only the power-mode one is counted, and only for up to 5 s.</td></tr>
+<tr><td>12</td><td><a href="#issue-12">rule_62 - Deinitialize Pointer Safety</a></td><td>XCastImplementation.cpp</td><td>179</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>Both parts are real: a bounded wait that proceeds with live workers, and <code>_service</code> left dangling after <code>Release()</code>.</td></tr>
+<tr><td>13</td><td><a href="#issue-13">rule_63 - hresult Return Values Checked</a></td><td>XCastImplementation.cpp</td><td>463</td><td>❌ VIOLATION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>LOW</td><td>Teardown <code>Unregister</code> results are ignored and the following log line reports success regardless.</td></tr>
+<tr><td>14</td><td><a href="#issue-14">rule_69 - INTERFACE_MAP Mandatory</a></td><td>XCastImplementation.h</td><td>325</td><td>❌ VIOLATION</td><td><span class="badge b-fp">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>JSON-RPC is served by the <code>XCast</code> wrapper (JSONRPC + IDispatcher); the out-of-process implementation is not meant to expose a dispatcher.</td></tr>
+<tr><td>15</td><td><a href="#issue-15">rule_06 - NULL vs nullptr</a></td><td>XCastManager.cpp</td><td>41</td><td>⚠️ WARNING</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>INFORMATIONAL</td><td><code>NULL</code> is used in several places; harmless style issue.</td></tr>
+<tr><td>16</td><td><a href="#issue-16">rule_14 - Special Members Deleted (Main Class)</a></td><td>XCast.h</td><td>69</td><td>⚠️ WARNING</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>INFORMATIONAL</td><td>Moves are not explicitly deleted, but a declared copy operation already suppresses implicit moves; the report's line number is wrong.</td></tr>
+<tr><td>17</td><td><a href="#issue-17">rule_64 - ASSERT Only for Programmer Invariants</a></td><td>XCastImplementation.cpp</td><td>432</td><td>⚠️ WARNING</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>LOW</td><td>Same root cause as issue 4, reported under a second rule; the interface is legitimately optional.</td></tr>
+<tr><td>18</td><td><a href="#issue-18">rule_73 - PluginSmartInterfaceType</a></td><td>XCastImplementation.cpp</td><td>263</td><td>⚠️ WARNING</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>Duplicate of issue 2; the raw members are real, the cited header lines are not, and the suggested wrapper is unverified here.</td></tr>
+<tr><td>19</td><td><a href="#issue-19">rule_74 - Prefer WorkerPool for Background Tasks</a></td><td>XCastImplementation.h</td><td>173</td><td>⚠️ WARNING</td><td><span class="badge b-partial">PARTIALLY VALID</span></td><td>LOW</td><td><code>std::thread</code> use is accurate, but the defect is untracked detached threads (issue 11); the repo guideline itself shows <code>std::thread</code> as acceptable when joined.</td></tr>
+<tr><td>20</td><td><a href="#issue-20">rule_79 - No Hardcoded Plugin Callsigns</a></td><td>XCastImplementation.cpp</td><td>263</td><td>⚠️ WARNING</td><td><span class="badge b-partial">PARTIALLY VALID</span></td><td>INFORMATIONAL</td><td>Callsigns are scattered literals (a macro exists but is unused), but the repo guideline uses compile-time constants, not configuration.</td></tr>
+<tr><td>21</td><td><a href="#issue-21">rule_82 - No sleep() in Plugin Code</a></td><td>XCastImplementation.cpp</td><td>180</td><td>⚠️ WARNING</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>LOW</td><td>Both sleeps exist; the wait loop is a polling substitute for a proper completion signal.</td></tr>
+<tr><td>22</td><td><a href="#issue-22">rule_34 - Startmode Declaration</a></td><td>XCast.conf.in</td><td>3</td><td>💡 SUGGESTION</td><td><span class="badge b-fp">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>The repo standard mandates <code>autostart</code> (default false); <code>startmode = Activated</code> would silently turn autostart on.</td></tr>
+<tr><td>23</td><td><a href="#issue-23">rule_36 - Numeric Tuning Parameters</a></td><td>XCastImplementation.cpp</td><td>371</td><td>💡 SUGGESTION</td><td><span class="badge b-partial">PARTIALLY VALID</span></td><td>INFORMATIONAL</td><td>Values are literal, but the plugin has no config class, so the advisor's <code>_config.*</code> fix does not exist here.</td></tr>
+<tr><td>24</td><td><a href="#issue-24">rule_39 - #pragma once</a></td><td>XCastCommon.h</td><td>24</td><td>💡 SUGGESTION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>INFORMATIONAL</td><td>Both headers use <code>#ifndef</code> guards; the other headers use <code>#pragma once</code>. A third header, <code>XCastManager.h</code>, has no guard at all.</td></tr>
+<tr><td>25</td><td><a href="#issue-25">rule_48 - No Lock Held During Framework Callbacks</a></td><td>XCastImplementation.cpp</td><td>1002</td><td>💡 SUGGESTION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>LOW</td><td>Lock spans all listener callbacks; a slow subscriber blocks <code>Register</code>/<code>Unregister</code>. Deadlock is plausible but not shown.</td></tr>
+<tr><td>26</td><td><a href="#issue-26">rule_60 - Lock Scope Minimized</a></td><td>XCastImplementation.cpp</td><td>1002</td><td>💡 SUGGESTION</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>INFORMATIONAL</td><td>Same root cause as issue 25; the JSON field extraction is also repeated for every listener inside the lock.</td></tr>
+</tbody></table>
+<p><strong>Reviewed: 26/26</strong></p>
+<h2>Detailed Validation</h2>
+<h3 id="issue-1">Issue 1</h3>
+<p><strong>rule_08 - nullptr After Release</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCast.cpp</code> | <strong>Line:</strong> 149 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> <code>_xcast</code> is used for <code>Release()</code> but is not cleared immediately; later teardown work runs before <code>_xcast = nullptr</code> at line 163, leaving a dangling member.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCast.cpp:148-163
+RPC::IRemoteConnection *connection = service-&gt;RemoteConnection(_connectionId);
+VARIABLE_IS_NOT_USED uint32_t result = _xcast-&gt;Release();
+ASSERT(result == Core::ERROR_DESTRUCTION_SUCCEEDED);
+if (nullptr != connection) {
+    connection-&gt;Terminate();
+    connection-&gt;Release();
+}
+_xcast = nullptr;</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>_xcast-&gt;Release()</code> is at <code>XCast/XCast.cpp:149</code>, <code>connection-&gt;Terminate()</code> at <code>XCast/XCast.cpp:160</code>, and <code>_xcast = nullptr</code> only at <code>XCast/XCast.cpp:163</code>.</li>
+<li>Deinitialize itself does not dereference <code>_xcast</code> between those lines, so the exposure is limited to other threads observing the member. <code>INTERFACE_AGGREGATE(Exchange::IXCast, _xcast)</code> (<code>XCast/XCast.h:136</code>) reads it from <code>QueryInterface</code>. Whether the framework can call <code>QueryInterface</code> on the plugin concurrently with Deinitialize is Thunder-internal and was not verified.</li>
+<li>The window includes <code>Terminate()</code>, which can block while the out-of-process implementation shuts down, so the window is not purely theoretical.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Move <code>_xcast = nullptr;</code> directly after the <code>Release()</code> call (before the <code>connection</code> handling) and keep <code>VARIABLE_IS_NOT_USED</code> on <code>result</code>.</p>
+<pre><code class="language-cpp">VARIABLE_IS_NOT_USED uint32_t result = _xcast-&gt;Release();
+_xcast = nullptr;
+ASSERT(result == Core::ERROR_DESTRUCTION_SUCCEEDED);</code></pre>
+<p><strong>Regression risk:</strong> Negligible for the reorder. The advisor's snippet drops <code>VARIABLE_IS_NOT_USED</code>; in builds where <code>ASSERT</code> compiles out, <code>result</code> becomes an unused variable (warning, or error under <code>-Werror</code>; compiler flags were not inspected).</p>
+<p><strong>Reproduction:</strong> Not deterministically reproducible. Preconditions: another thread calls <code>QueryInterface&lt;Exchange::IXCast&gt;</code> on the plugin while Deinitialize is inside <code>connection-&gt;Terminate()</code>. Expected: null/failed query. Possible actual: aggregated pointer to a released proxy. Not attempted.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-2">Issue 2</h3>
+<p><strong>rule_09 - QueryInterfaceByCallsign Lifetime</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 263 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Results of <code>QueryInterfaceByCallsign</code> (SystemServices, NetworkManager, AppManager, AppActions) are kept in member pointers and can go stale when the other plugin deactivates.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:263, 390, 498, 611
+_systemServicesPlugin = service-&gt;QueryInterfaceByCallsign&lt;Exchange::ISystemServices&gt;("org.rdk.System");
+_networkManagerPlugin = service-&gt;QueryInterfaceByCallsign&lt;Exchange::INetworkManager&gt;("org.rdk.NetworkManager");
+_appManagerPlugin     = service-&gt;QueryInterfaceByCallsign&lt;Exchange::IAppManager&gt;("org.rdk.AppManager");
+_appActionsPlugin     = service-&gt;QueryInterfaceByCallsign&lt;Exchange::IAppActions&gt;("org.rdk.AppActions");</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: the four calls are at <code>XCast/XCastImplementation.cpp:263</code>, <code>XCast/XCastImplementation.cpp:390</code>, <code>XCast/XCastImplementation.cpp:498</code>, <code>XCast/XCastImplementation.cpp:611</code>; the raw members are declared at <code>XCast/XCastImplementation.h:347</code>, <code>XCast/XCastImplementation.h:353</code>, <code>XCast/XCastImplementation.h:356</code>, <code>XCast/XCastImplementation.h:362</code>; they are only released in <code>XCast/XCastImplementation.cpp:207-224</code>.</li>
+<li>The repo's own guideline lists "hold the interface for the whole lifecycle" as an incorrect example (<code>.github/instructions/Pluginimplementation.instructions.md:218-250</code>) and requires StateChange handling when registering notifications on another plugin (<code>.github/instructions/Pluginimplementation.instructions.md:45-155</code>). Nothing in <code>XCastImplementation</code> (<code>XCast/XCastImplementation.h:77</code>) implements <code>PluginHost::IPlugin::INotification</code> or reacts to the target plugins deactivating.</li>
+<li>The pointers are used long after acquisition: NetworkManager on the locate-cast timer (<code>XCast/XCastImplementation.cpp:833</code>, <code>XCast/XCastImplementation.cpp:844</code>) and AppActions on every launch/stop/hide/resume request (<code>XCast/XCastImplementation.cpp:641</code>).</li>
+<li>Real impact depends on whether each target plugin runs in-process or out-of-process and on Thunder's proxy behaviour after the remote side dies. Neither is determinable from this repo, so MEDIUM rather than HIGH.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Follow the repo guideline: for call-only use (AppActions, SystemServices <code>GetFriendlyName</code>) acquire on demand and release immediately. For interfaces that need notification registration (NetworkManager, SystemServices, AppManager) register for the target plugin's state changes and re-acquire/re-register on ACTIVATED, release on DEACTIVATED.</p>
+<p><strong>Regression risk:</strong> The advisor's <code>PluginSmartInterfaceType</code> fix is not described in this repo's guideline, and its availability/semantics in the Thunder and helper versions used were not verified. On-demand acquisition costs a lookup per call (AppActions is called per launch request) and cannot be used for notification interfaces without re-registration logic.</p>
+<p><strong>Reproduction:</strong> Preconditions: target plugin (for example NetworkManager) deactivated while XCast stays active. Expected: XCast notices and drops/reacquires the interface. Actual (from code reading): the cached pointer is kept and used by the timer path. Outcome of the call (error vs crash) depends on plugin mode. Not executed.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-3">Issue 3</h3>
+<p><strong>rule_15 - Plugin Metadata Registration</strong> <span class="badge b-fp">FALSE POSITIVE</span><br><strong>File:</strong> <code>XCast/XCast.cpp</code> | <strong>Line:</strong> 29 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> <code>XCast</code> is registered twice: by <code>Plugin::Metadata</code> and by <code>SERVICE_REGISTRATION</code>; the fix is to remove <code>SERVICE_REGISTRATION</code>.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCast.cpp:29-43
+static Plugin::Metadata&lt;Plugin::XCast&gt; metadata(
+    API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH,
+    {}, {}, {});
+...
+SERVICE_REGISTRATION(XCast, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Both statements exist (<code>XCast/XCast.cpp:29</code>, <code>XCast/XCast.cpp:43</code>), but the repo's "Service Registration" guideline says all services "must be registered using the SERVICE_REGISTRATION macro" and that <code>Plugin::Metadata</code> is optional, for readability. Its example contains both together (<code>.github/instructions/Plugin.instructions.md:37-75</code>).</li>
+<li>The advisor's claim that this registers the class twice depends on how the Thunder headers expand the macros; those headers are not in this repo and were not inspected. The advisor provides no evidence of a runtime failure.</li>
+<li>Not reported by the advisor but consistent: the implementation library uses the two-argument form <code>SERVICE_REGISTRATION(XCastImplementation, 1, 0)</code> (<code>XCast/XCastImplementation.cpp:46</code>).</li>
+</ul>
+<p><strong>Recommended fix:</strong> No change. If the project wants to drop the optional <code>Metadata</code> block, remove that instead and keep <code>SERVICE_REGISTRATION</code>.</p>
+<p><strong>Regression risk:</strong> High if the advisor's fix is applied: removing <code>SERVICE_REGISTRATION</code> conflicts with the mandatory registration in <code>.github/instructions/Plugin.instructions.md:37-55</code> and, by that guideline, risks the plugin not being instantiable (not built or run).</p>
+<p><strong>Reproduction:</strong> Not applicable: no failing behaviour is evidenced; confirming would need a build/run against the target Thunder SDK, which was not done.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-4">Issue 4</h3>
+<p><strong>rule_27 - Partial Initialization Cleanup</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 190 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> <code>Deinitialize()</code> unconditionally calls <code>unregisterPowerEventHandlers()</code>, which asserts the (optional) PowerManager interface before its null guard.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:190, 430-433
+unregisterPowerEventHandlers();
+...
+void XCastImplementation::unregisterPowerEventHandlers()
+{
+    ASSERT (_powerManagerPlugin);
+    if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin) { ... }
+}</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: the call is unconditional (<code>XCast/XCastImplementation.cpp:190</code>), the <code>ASSERT</code> precedes the guard (<code>XCast/XCastImplementation.cpp:432</code>), and PowerManager acquisition is allowed to fail: <code>InitializePowerManager</code> only logs "Failed to get PowerManager instance" (<code>XCast/XCastImplementation.cpp:369-382</code>).</li>
+<li>The guard <code>if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin)</code> already makes the function safe, so the user-visible effect exists only where <code>ASSERT</code> is active. Thunder normally enables it in debug builds only; the build configuration used by the project was not checked.</li>
+<li>The same pattern exists at other sites the advisor did not list: <code>XCast/XCastImplementation.cpp:404</code> (reachable via <code>SetEnabled</code>, <code>XCast/XCastImplementation.cpp:1230-1237</code>), <code>XCast/XCastImplementation.cpp:661</code>, <code>XCast/XCastImplementation.cpp:1540</code>. See also issue 17, which reports the same root cause under another rule.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Remove the <code>ASSERT</code> in <code>unregisterPowerEventHandlers()</code> and keep the null check; apply the same to the other three sites.</p>
+<pre><code class="language-cpp">void XCastImplementation::unregisterPowerEventHandlers()
+{
+    if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin) {
+        // unregister both notifications, then clear _registeredPowerEventHandlers
+    }
+}</code></pre>
+<p><strong>Regression risk:</strong> None functionally; only the debug-build diagnostic is lost.</p>
+<p><strong>Reproduction:</strong> Debug build with ASSERT enabled (assumed, not verified). Preconditions: PowerManager not available during <code>InitializePowerManager</code> retries (25 x 200 ms). Steps: activate XCast, then deactivate. Expected: clean teardown. Actual (by code reading): assertion in <code>unregisterPowerEventHandlers()</code>. Not executed.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-5">Issue 5</h3>
+<p><strong>rule_31 - No Hardcoded Paths</strong> <span class="badge b-partial">PARTIALLY VALID</span><br><strong>File:</strong> <code>XCast/XCastManager.cpp</code> | <strong>Line:</strong> 32 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> System and temp file paths are compiled in instead of coming from configuration or a platform path abstraction.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastManager.cpp:32, 282, 314-315, 360, 379
+#define COMMON_DEVICE_PROPERTIES_FILE   "/etc/device.properties"
+std::ifstream file("/tmp/gpid.txt");
+std::ifstream authService_deviceId("/opt/www/authService/deviceid.dat");
+std::ifstream file_stream("/opt/wifi_interface");
+std::ifstream file_stream("/tmp/wifi-on");</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>XCast/XCastManager.cpp:32</code>, <code>XCast/XCastManager.cpp:282</code>, <code>XCast/XCastManager.cpp:314-315</code>, <code>XCast/XCastManager.cpp:360</code>, <code>XCast/XCastManager.cpp:379</code>.</li>
+<li>These are read-only lookups of well-known RDK device files (device properties, device id, Wi-Fi interface marker). No file in <code>.github/instructions</code> or the repo docs requires them to be configurable, and the plugin has no Config class to carry them (the advisor itself skips rule_35/51/66 for that reason).</li>
+<li>The valid part is maintainability: one <code>#define</code> exists, the rest are inline literals. A side note, not a proven defect: <code>/tmp/gpid.txt</code> and <code>/tmp/wifi-on</code> influence the receiver ID and interface choice; whether <code>/tmp</code> is writable by untrusted processes is device-specific and was not assessed.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Group the literals as named constants in one place (for example in <code>XCastManager.cpp</code> next to <code>COMMON_DEVICE_PROPERTIES_FILE</code>). Make them configurable only if a concrete deployment needs it.</p>
+<p><strong>Regression risk:</strong> Making them configurable needs a new Config class and conf.in entries; a wrong default breaks receiver-ID and interface discovery, which feeds DIAL discovery. Not tested.</p>
+<p><strong>Reproduction:</strong> Not applicable: a static code-structure observation; no failing behaviour is claimed.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-6">Issue 6</h3>
+<p><strong>rule_37 - CXX_STANDARD Uses Thunder Variable</strong> <span class="badge b-ctx">NEEDS MORE CONTEXT</span><br><strong>File:</strong> <code>XCast/CMakeLists.txt</code> | <strong>Line:</strong> 51 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> UNDETERMINED | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Both targets hardcode <code>CXX_STANDARD 11</code> instead of using Thunder's selected standard.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cmake"># XCast/CMakeLists.txt:50-52 and 71-73
+set_target_properties(${MODULE_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED YES)</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>CXX_STANDARD 11</code> at <code>XCast/CMakeLists.txt:51</code> and <code>XCast/CMakeLists.txt:72</code>.</li>
+<li>A search of all <code>CMakeLists.txt</code> and <code>*.cmake</code> files in the repo found no definition of <code>CXX_STD</code>; the repo's CMake guideline only covers <code>${NAMESPACE}</code> (<code>.github/instructions/Plugincmake.instructions.md:5-35</code>). Whether Thunder's CMake modules or the parent build define <code>CXX_STD</code> is external and unknown.</li>
+<li>The L1 test project builds with C++14 (<code>Tests/L1Tests/CMakeLists.txt:22</code>) while the plugin targets use 11, an inconsistency regardless of the advisor's rule.</li>
+<li>If <code>CXX_STD</code> were undefined, <code>CXX_STANDARD ${CXX_STD}</code> would expand to an empty value and silently fall back to the compiler default.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Confirm in the target Thunder/CMake environment that <code>CXX_STD</code> exists. If it does, use it for both targets; if not, keep 11 explicitly or define a project-level variable.</p>
+<p><strong>Regression risk:</strong> Potential language-level change for all plugin sources and the Thunder R4 headers they include; warnings or behavioural differences possible. Not built.</p>
+<p><strong>Reproduction:</strong> Not applicable: build-configuration question; would require configuring against the target SDK, which was not done.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-7">Issue 7</h3>
+<p><strong>rule_41 - Reverse-Order Cleanup</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 190 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Configure acquires PowerManager, manager, SystemServices, AppManager, AppActions; Deinitialize unregisters and releases them in the same (forward) order instead of reverse.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:341-345 (acquire)
+InitializePowerManager(service);
+Initialize(m_networkStandbyMode);
+InitializeSystemServices(service);
+InitializeAppManager(service);
+InitializeAppActions(service);
+// :190-224 (teardown) - unregister Power, Network, System, AppManager;
+// stop manager; release Power, Network, System, AppManager, AppActions</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: acquisition order at <code>XCast/XCastImplementation.cpp:341-345</code>; teardown unregisters at <code>XCast/XCastImplementation.cpp:190-195</code> and releases at <code>XCast/XCastImplementation.cpp:204-224</code> in the same order. The repo requires reverse order (<code>.github/instructions/Pluginlifecycle.instructions.md:114</code>).</li>
+<li>The advisor omits that NetworkManager is acquired lazily from the timer path (<code>XCast/XCastImplementation.cpp:824</code>), not in Configure. Its snippet also misquotes <code>Initialize(service...)</code>; the real call is <code>Initialize(m_networkStandbyMode)</code> (<code>XCast/XCastImplementation.cpp:342</code>).</li>
+<li>The code does follow the more important sub-rules: notifications are unregistered before the manager is shut down and interfaces released (<code>XCast/XCastImplementation.cpp:190-203</code>). No dependency between the four plugin proxies was found, so the ordering is a guideline violation with little practical consequence.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Unregister/release in reverse: AppActions, AppManager, SystemServices, NetworkManager, then PowerManager, with the manager shutdown placed where it keeps callbacks drained.</p>
+<p><strong>Regression risk:</strong> Keep the <code>_appManagerCallbackLock</code> scope around the AppManager unregister (<code>XCast/XCastImplementation.cpp:193-196</code>) and keep unregistration before the manager is destroyed. Moving the AppManager unregister earlier is safe with respect to that lock.</p>
+<p><strong>Reproduction:</strong> Not applicable: ordering of independent releases produces no observable failure by code reading; not run.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-8">Issue 8</h3>
+<p><strong>rule_47 - Shared State Protected by CriticalSection</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.h</code> | <strong>Line:</strong> 181 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Notification callbacks write shared power/network state while timers, detached workers and API methods read or update it without a common lock.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.h:167, 181
+m_powerState = newState;                      // PowerManager callback thread
+_parent.m_networkStandbyMode = enabled;       // PowerManager callback thread
+// XCast/XCastImplementation.cpp:314, 1226-1228
+m_friendlyName = friendlyName;                // SystemServices callback thread
+bool currentNetworkStandbyMode = m_networkStandbyMode;
+m_xcastEnable = enabled;                      // JSON-RPC/COM-RPC thread</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed writers: <code>m_powerState</code> (<code>XCast/XCastImplementation.h:167</code>, declared at <code>XCast/XCastImplementation.h:57</code>), <code>m_networkStandbyMode</code> (<code>XCast/XCastImplementation.h:181</code>, <code>XCast/XCastImplementation.cpp:673</code>, <code>XCast/XCastImplementation.cpp:1156</code>), <code>m_friendlyName</code> (<code>XCast/XCastImplementation.cpp:314</code>, <code>XCast/XCastImplementation.cpp:1304</code>), <code>m_xcastEnable</code>/<code>m_standbyBehavior</code> (statics at <code>XCast/XCastImplementation.cpp:55-63</code>, written at <code>XCast/XCastImplementation.cpp:1228</code>).</li>
+<li>Confirmed readers on other threads: detached workers (<code>XCast/XCastImplementation.cpp:322-330</code>, <code>XCast/XCastImplementation.cpp:712</code>), the locate-cast timer (<code>XCast/XCastImplementation.cpp:954</code>), <code>friendlyNameCache</code>/<code>xcastEnableCache</code> written in <code>enableCastService</code> (<code>XCast/XCastImplementation.cpp:967-968</code>) and read on the timer thread.</li>
+<li><code>_adminLock</code> (<code>XCast/XCastImplementation.h:348</code>) only guards the listener list; <code>m_appConfigMutex</code>, <code>m_TimerMutexSync</code> and <code>_appManagerCallbackLock</code> each guard different subsets.</li>
+<li>A concurrent read/write of <code>m_friendlyName</code> (a <code>std::string</code>) is undefined behaviour and can corrupt memory; the bool/enum races are formally undefined but benign on typical targets. Static reading only; no sanitizer was run.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Use <code>std::atomic</code> for independent scalars (<code>m_powerState</code>, <code>m_networkStandbyMode</code>, <code>m_xcastEnable</code>, <code>m_standbyBehavior</code>) and one mutex for the strings and the cached values; take snapshot copies before calling into <code>XCastManager</code>.</p>
+<p><strong>Regression risk:</strong> Adding a lock around code that calls <code>m_xcast_manager-&gt;enableCastService(...)</code> (which takes the manager's recursive mutex) can introduce lock-order inversion with <code>m_TimerMutexSync</code> and <code>m_appConfigMutex</code>. Hold the new lock only while copying values.</p>
+<p><strong>Reproduction:</strong> Preconditions: ThreadSanitizer build (not available here). Steps: call <code>SetFriendlyName</code> repeatedly while SystemServices emits <code>OnFriendlyNameChanged</code>. Expected: no race. Actual (by code reading): unsynchronised <code>std::string</code> access in <code>onFriendlyNameUpdateHandler</code> vs <code>threadSystemFriendlyNameChangeEvent</code>. Not executed.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-9">Issue 9</h3>
+<p><strong>rule_53 - Handler Registration Order in Initialize/Deinitialize</strong> <span class="badge b-partial">PARTIALLY VALID</span><br><strong>File:</strong> <code>XCast/XCast.cpp</code> | <strong>Line:</strong> 169 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> The plugin stays registered for IPlugin notifications while JSON-RPC handlers, interfaces and the remote implementation are torn down; the callback could arrive mid-teardown.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCast.cpp:166-169
+// Make sure the Activated and Deactivated are no longer called before we start cleaning up..
+if (nullptr != _service)
+{
+    _service-&gt;Unregister(&amp;_xcastNotification);
+    _service-&gt;Release();</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed ordering: <code>JXCast::Unregister</code> and <code>_xcast-&gt;Unregister</code> come first (<code>XCast/XCast.cpp:127-128</code>), then <code>Release</code>/<code>Terminate</code> (<code>XCast/XCast.cpp:149-160</code>), and <code>_service-&gt;Unregister(&amp;_xcastNotification)</code> only at <code>XCast/XCast.cpp:169</code>. The code's own comment (<code>XCast/XCast.cpp:166</code>) states the intent that callbacks stop before cleanup, which the order does not achieve. The repo requires unregistering from the shell before releasing pointers (<code>.github/instructions/Pluginlifecycle.instructions.md:149</code>).</li>
+<li>Inaccurate wording: the sink is registered for <code>RPC::IRemoteConnection::INotification</code> (<code>XCast/XCast.cpp:74</code>, <code>XCast/XCast.h:70</code>), not IPlugin state notifications. The relevant callback is <code>Deactivated(connection)</code>, which can fire when <code>connection-&gt;Terminate()</code> closes the remote connection.</li>
+<li>Effect by code reading: <code>Deactivated</code> (<code>XCast/XCast.cpp:182-188</code>) submits a DEACTIVATED job on <code>_service</code>, which Deinitialize still holds referenced. Because the plugin is already deactivating, this is most likely a no-op, but Thunder's handling of that case is external and not verified. <code>_connectionId</code> is also reset at <code>XCast/XCast.cpp:173</code> while the callback may read it.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Unregister <code>_xcastNotification</code> from the shell first (guarded by <code>_service != nullptr</code>), keep <code>_service-&gt;Release()</code> and <code>_service = nullptr</code> at the end.</p>
+<pre><code class="language-cpp">if (nullptr != _service) {
+    _service-&gt;Unregister(&amp;_xcastNotification);   // stop remote-connection callbacks first
+}
+// ... unregister from _xcast, release, Terminate ...
+if (nullptr != _service) {
+    _service-&gt;Release();
+    _service = nullptr;
+}</code></pre>
+<p><strong>Regression risk:</strong> Low. A remote-process crash during teardown would no longer trigger <code>Deactivated</code>, which is acceptable because deactivation is already in progress. <code>Release</code>/<code>_service = nullptr</code> must stay at the end because <code>RemoteConnection(_connectionId)</code> and <code>Terminate()</code> still use <code>service</code>.</p>
+<p><strong>Reproduction:</strong> Preconditions: out-of-process mode (default <code>Local</code>, <code>XCast/CMakeLists.txt:24</code>). Steps: deactivate XCast and observe whether <code>Deactivated</code> is delivered during <code>Terminate()</code>. Expected by the advisor: callback after partial teardown. Not executed; outcome unverified.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-10">Issue 10</h3>
+<p><strong>rule_54 - Core::ERROR_* Return Values</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 969 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> A <code>uint32_t</code> method and a <code>Core::hresult</code> method return raw <code>0</code> instead of <code>Core::ERROR_NONE</code>.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:969, 1158
+return 0;</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>return 0;</code> at <code>XCast/XCastImplementation.cpp:969</code> (<code>enableCastService</code>, declared at <code>XCast/XCastImplementation.h:394</code>) and <code>XCast/XCastImplementation.cpp:1158</code> (<code>SetNetworkStandbyMode</code>, defined at <code>XCast/XCastImplementation.cpp:1150</code>).</li>
+<li>The rest of the file compares results with <code>Core::ERROR_NONE</code> (<code>XCast/XCastImplementation.cpp:288</code> and many others); the constant's value of 0 is defined in Thunder headers that were not inspected, but is conventional.</li>
+<li>Related, not in the report: <code>SetNetworkStandbyMode</code> returns success even when <code>m_xcast_manager</code> is null (<code>XCast/XCastImplementation.cpp:1152-1158</code>) and no caller consumes the <code>enableCastService</code> result.</li>
+</ul>
+<p><strong>Recommended fix:</strong> <code>return Core::ERROR_NONE;</code> in both places.</p>
+<p><strong>Regression risk:</strong> None.</p>
+<p><strong>Reproduction:</strong> Not applicable: no behavioural difference.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-11">Issue 11</h3>
+<p><strong>rule_61 - Plugin Threads Joined in Deinitialize</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.h</code> | <strong>Line:</strong> 176 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Power-mode, network-standby and friendly-name work runs on detached <code>std::thread</code>s; Deinitialize does not join them and its bounded counter covers only the power-mode worker.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.h:173-184
+std::thread powerModeChangeThread([parent, guard]() { parent-&gt;threadPowerModeChangeEvent(); });
+powerModeChangeThread.detach();
+...
+std::thread networkStandbyModeChangeThread = std::thread(&amp;XCastImplementation::networkStandbyModeChangeEvent,&amp;_parent);
+networkStandbyModeChangeThread.detach();
+// XCast/XCastImplementation.cpp:316-317
+std::thread friendlyNameChangeThread = std::thread(&amp;XCastImplementation::threadSystemFriendlyNameChangeEvent,this);
+friendlyNameChangeThread.detach();</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: detach at <code>XCast/XCastImplementation.h:176</code>, <code>XCast/XCastImplementation.h:184</code>, <code>XCast/XCastImplementation.cpp:317</code>. <code>powerModeChangeActiveCount</code> is incremented only for the power-mode worker (<code>XCast/XCastImplementation.h:171</code>) and waited on at <code>XCast/XCastImplementation.cpp:179</code>; network-standby and friendly-name workers are not tracked at all.</li>
+<li>These workers dereference <code>this</code>/<code>_parent</code> and <code>m_xcast_manager</code> (<code>XCast/XCastImplementation.cpp:712</code>, <code>XCast/XCastImplementation.cpp:330</code>). If they run after teardown the objects may already be released. In the default out-of-process mode (<code>XCast/CMakeLists.txt:24</code>) <code>XCast::Deinitialize</code> later terminates the process (<code>XCast/XCast.cpp:160</code>), which limits but does not remove the hazard; in in-process mode the access would be to freed memory.</li>
+<li>The repo requires threads to be joined or safely terminated (<code>.github/instructions/Pluginlifecycle.instructions.md:189</code>). The team already knows about the hazard for the power worker (<code>Tests/L1Tests/tests/test_XCast.cpp:371-374</code>).</li>
+</ul>
+<p><strong>Recommended fix:</strong> Own the workers: keep <code>std::thread</code> members (or Core::WorkerPool jobs) with a shared in-flight counter/condition variable, stop and drain them in Deinitialize before releasing state.</p>
+<p><strong>Regression risk:</strong> Moving to the shared WorkerPool risks starving it because these tasks block (<code>sleep</code>, gdial start/stop). Joining from a callback thread that holds locks can deadlock. The restart path calls Deinitialize from the power worker itself (see Additional Observations), so that worker must not join itself.</p>
+<p><strong>Reproduction:</strong> Preconditions: emit a network-standby change from PowerManager and deactivate XCast immediately after. Expected: worker finishes before teardown. Actual (by code reading): worker may still run during/after teardown. Needs a stress/TSAN setup; not executed.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-12">Issue 12</h3>
+<p><strong>rule_62 - Deinitialize Pointer Safety</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 179 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Teardown waits at most 5 s for one worker class then proceeds, other workers are not counted, and <code>Configure(nullptr)</code> releases <code>_service</code> without clearing the member.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:179-185, 351-357
+while ((powerModeChangeActiveCount.load() &gt; 0) &amp;&amp; waitCount &lt; 50) { usleep(100000); waitCount++; }
+if (powerModeChangeActiveCount.load() &gt; 0) { LOGWARN("... proceeding with cleanup"); }
+...
+else if ((_service) &amp;&amp; ( nullptr == service ))
+{
+    lock_guard&lt;mutex&gt; lck(m_TimerMutexSync);
+    Deinitialize();
+    _service-&gt;Release();
+}</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed bounded wait (<code>XCast/XCastImplementation.cpp:179-185</code>) that proceeds with only a warning, and untracked network-standby/friendly-name workers (see issue 11).</li>
+<li>Confirmed: <code>_service-&gt;Release()</code> at <code>XCast/XCastImplementation.cpp:356</code> is not followed by <code>_service = nullptr</code>; the member is only cleared in the destructor (<code>XCast/XCastImplementation.cpp:98</code>). A second <code>Configure(nullptr)</code> would call <code>Deinitialize()</code> and <code>Release()</code> again. In the normal flow <code>XCast::Deinitialize</code> calls it once (<code>XCast/XCast.cpp:134</code>), so production exposure is low; the dangling-pointer part is LOW on its own.</li>
+<li>The wait loop can also stall by itself when called from the power worker (see Additional Observations).</li>
+</ul>
+<p><strong>Recommended fix:</strong> Drain all workers deterministically (see issue 11) and set <code>_service = nullptr</code> right after <code>_service-&gt;Release()</code>.</p>
+<p><strong>Regression risk:</strong> Setting <code>_service = nullptr</code> is safe if nothing reads <code>_service</code> afterwards; <code>connectToGDialService</code> checks it (<code>XCast/XCastImplementation.cpp:791</code>) and the timer is stopped inside <code>Deinitialize</code>. Waiting without a time bound would let a stuck worker block the Thunder deactivation path.</p>
+<p><strong>Reproduction:</strong> Not deterministically reproducible. A unit test calling <code>Configure(nullptr)</code> twice on the same implementation would show the double <code>Release()</code>; not written or run.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-13">Issue 13</h3>
+<p><strong>rule_63 - hresult Return Values Checked</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 463 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> COM <code>Unregister</code> calls return <code>Core::hresult</code> but results are discarded (SystemServices, AppManager, NetworkManager, PowerManager).</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:463, 489, 530
+_networkManagerPlugin-&gt;Unregister(&amp;_networkManagerNotification);
+_systemServicesPlugin-&gt;Unregister(&amp;_systemServicesNotification);
+_appManagerPlugin-&gt;Unregister(&amp;_appManagerNotification);</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed discards: <code>XCast/XCastImplementation.cpp:419</code>, <code>XCast/XCastImplementation.cpp:423</code>, <code>XCast/XCastImplementation.cpp:434</code>, <code>XCast/XCastImplementation.cpp:436</code>, <code>XCast/XCastImplementation.cpp:463</code>, <code>XCast/XCastImplementation.cpp:489</code>, <code>XCast/XCastImplementation.cpp:530</code>. Each is followed by an unconditional <code>LOGINFO(... unregistered)</code>, which can be wrong.</li>
+<li>During teardown there is no useful recovery, so logging is the realistic remedy, hence LOW. The <code>Register</code> calls are checked (<code>XCast/XCastImplementation.cpp:406-409</code>, <code>XCast/XCastImplementation.cpp:446</code>, <code>XCast/XCastImplementation.cpp:472</code>, <code>XCast/XCastImplementation.cpp:514</code>). That <code>Unregister</code> returns <code>Core::hresult</code> is inferred from the matching <code>Register</code> signatures; the interface headers were not inspected.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Capture the result, log on failure, and keep clearing <code>_registeredPowerEventHandlers</code> regardless so teardown completes.</p>
+<pre><code class="language-cpp">const Core::hresult result = _networkManagerPlugin-&gt;Unregister(&amp;_networkManagerNotification);
+if (Core::ERROR_NONE != result) {
+    LOGERR("Failed to unregister network notification: %u", result);
+}</code></pre>
+<p><strong>Regression risk:</strong> None if the failure path only logs. Returning early on failure would skip later cleanup and should be avoided.</p>
+<p><strong>Reproduction:</strong> Not applicable: requires a target plugin whose <code>Unregister</code> fails; not constructed.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-14">Issue 14</h3>
+<p><strong>rule_69 - INTERFACE_MAP Mandatory</strong> <span class="badge b-fp">FALSE POSITIVE</span><br><strong>File:</strong> <code>XCast/XCastImplementation.h</code> | <strong>Line:</strong> 325 | <strong>Original severity:</strong> ❌ VIOLATION | <strong>False positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> <code>IXCast</code> is a JSON interface, but the implementation's interface map omits <code>IDispatch</code>, so JSON-RPC dispatch cannot be queried through it.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.h:325-328
+BEGIN_INTERFACE_MAP(XCastImplementation)
+INTERFACE_ENTRY(Exchange::IXCast)
+INTERFACE_ENTRY(Exchange::IConfiguration)
+END_INTERFACE_MAP</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>The JSON-RPC surface lives in the wrapper: <code>XCast</code> derives from <code>PluginHost::JSONRPC</code>, exposes <code>PluginHost::IDispatcher</code> (<code>XCast/XCast.h:135</code>) and registers generated handlers with <code>Exchange::JXCast::Register(*this, _xcast)</code> (<code>XCast/XCast.cpp:94</code>; <code>Unregister</code> at <code>XCast/XCast.cpp:127</code>), calling the implementation through the <code>IXCast</code> COM-RPC interface.</li>
+<li>The repo guideline puts <code>IPlugin</code>/<code>IDispatcher</code> in the main plugin class only (<code>.github/instructions/Plugin.instructions.md:12-35</code>), and the implementation map (<code>XCast/XCastImplementation.h:325-328</code>) matches the repo's pattern of <code>IXCast</code> + <code>IConfiguration</code>.</li>
+<li>The advisor's "IDispatch" is not an entry used anywhere in this repo, and its claim depends on Thunder's generator/headers, which were not inspected.</li>
+</ul>
+<p><strong>Recommended fix:</strong> No change.</p>
+<p><strong>Regression risk:</strong> Adding a dispatcher entry to the implementation would expose an interface nothing queries and could mask the real JSON-RPC path; behaviour impact unverified.</p>
+<p><strong>Reproduction:</strong> Not applicable: no failing behaviour claimed or evidenced.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-15">Issue 15</h3>
+<p><strong>rule_06 - NULL vs nullptr</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastManager.cpp</code> | <strong>Line:</strong> 41 | <strong>Original severity:</strong> ⚠️ WARNING | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> The macro <code>NULL</code> is used as a pointer literal in executable code.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastManager.cpp:41
+static gdialService* gdialCastObj = NULL;
+// XCast/XCastImplementation.cpp:1352
+free (pDynamicAppConfigOld); pDynamicAppConfigOld = NULL;</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>XCast/XCastManager.cpp:41</code> and <code>XCast/XCastImplementation.cpp:1352</code>; also <code>gdialCastObj != NULL</code> comparisons throughout (<code>XCast/XCastManager.cpp:425</code>, <code>XCast/XCastManager.cpp:439</code>) and <code>m_SystemPluginObj = NULL</code> (<code>XCast/XCastImplementation.h:334</code>).</li>
+<li>No behavioural difference in this code. The assignment at <code>XCast/XCastImplementation.cpp:1352</code> is a dead store on a loop-local pointer.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Replace with <code>nullptr</code>.</p>
+<p><strong>Regression risk:</strong> None.</p>
+<p><strong>Reproduction:</strong> Not applicable: style only.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-16">Issue 16</h3>
+<p><strong>rule_14 - Special Members Deleted (Main Class)</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCast.h</code> | <strong>Line:</strong> 69 | <strong>Original severity:</strong> ⚠️ WARNING | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> The main plugin class deletes copy ctor/assignment but not move ctor/assignment.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCast.h:127-128  (the report cites line 69, which is an INTERFACE_ENTRY)
+XCast(const XCast &amp;) = delete;
+XCast &amp;operator=(const XCast &amp;) = delete;</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed at <code>XCast/XCast.h:127-128</code> (the advisor cited line 69, which is <code>INTERFACE_ENTRY(RPC::IRemoteConnection::INotification)</code>, <code>XCast/XCast.h:70</code>).</li>
+<li>In C++ a user-declared copy operation (here <code>= delete</code>) prevents the implicit move operations from being declared, so moving the plugin is already impossible. Explicit deletion is documentation/consistency only.</li>
+<li>The repo's own example deletes all four (<code>.github/instructions/Plugin.instructions.md:165</code>); the nested <code>Notification</code> class also deletes only the copy operations (<code>XCast/XCast.h:53-55</code>).</li>
+</ul>
+<p><strong>Recommended fix:</strong> Add <code>XCast(XCast&amp;&amp;) = delete;</code> and <code>XCast&amp; operator=(XCast&amp;&amp;) = delete;</code> to match the repo example.</p>
+<p><strong>Regression risk:</strong> None.</p>
+<p><strong>Reproduction:</strong> Not applicable.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-17">Issue 17</h3>
+<p><strong>rule_64 - ASSERT Only for Programmer Invariants</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 432 | <strong>Original severity:</strong> ⚠️ WARNING | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> <code>ASSERT</code> assumes an optional PowerManager interface is available.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:432
+ASSERT (_powerManagerPlugin);
+if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin) { ... }</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed at <code>XCast/XCastImplementation.cpp:432</code>; acquisition may fail (<code>XCast/XCastImplementation.cpp:369-382</code>). Same assertion pattern at <code>XCast/XCastImplementation.cpp:404</code>, <code>XCast/XCastImplementation.cpp:661</code> and <code>XCast/XCastImplementation.cpp:1540</code>.</li>
+<li>Duplicate of issue 4 (rule_27); fixing one fixes both. Severity is LOW because release builds skip <code>ASSERT</code> and the guard that follows is correct.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Remove the <code>ASSERT</code>s on <code>_powerManagerPlugin</code> (all four sites) and keep the guards.</p>
+<p><strong>Regression risk:</strong> None functionally.</p>
+<p><strong>Reproduction:</strong> Same as issue 4.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-18">Issue 18</h3>
+<p><strong>rule_73 - PluginSmartInterfaceType</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 263 | <strong>Original severity:</strong> ⚠️ WARNING | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Persistent raw COM-RPC plugin proxies are stored as members; recommends <code>PluginSmartInterfaceType</code>.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.h:347-362 (the report cites 204-214)
+Exchange::INetworkManager* _networkManagerPlugin;
+Exchange::ISystemServices* _systemServicesPlugin;
+Exchange::IAppManager* _appManagerPlugin;
+Exchange::IAppActions* _appActionsPlugin;</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed members at <code>XCast/XCastImplementation.h:347</code>, <code>XCast/XCastImplementation.h:353</code>, <code>XCast/XCastImplementation.h:356</code>, <code>XCast/XCastImplementation.h:362</code>; the advisor's "XCastImplementation.h:204-214" is a different region (notification classes). Acquisition sites are <code>XCast/XCastImplementation.cpp:263</code>, <code>XCast/XCastImplementation.cpp:390</code>, <code>XCast/XCastImplementation.cpp:498</code>, <code>XCast/XCastImplementation.cpp:611</code>.</li>
+<li>In-repo precedent for a managed handle exists: PowerManager already uses <code>PowerManagerInterfaceRef</code> (<code>XCast/XCastImplementation.h:337</code>). <code>PluginSmartInterfaceType</code> itself is not used or documented in this repo, so its availability in the target Thunder/helper version was not verified.</li>
+<li>The repo's guideline favours on-demand acquisition or StateChange-driven re-registration (<code>.github/instructions/Pluginimplementation.instructions.md:218-250</code>). Same impact assessment as issue 2.</li>
+</ul>
+<p><strong>Recommended fix:</strong> See issue 2; use the smart-interface helper only if the target SDK provides it and its re-registration semantics fit.</p>
+<p><strong>Regression risk:</strong> Wrapper semantics (auto re-acquire, notification re-registration) differ from the current explicit Register/Unregister flow and need testing; not built.</p>
+<p><strong>Reproduction:</strong> Same as issue 2.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-19">Issue 19</h3>
+<p><strong>rule_74 - Prefer WorkerPool for Background Tasks</strong> <span class="badge b-partial">PARTIALLY VALID</span><br><strong>File:</strong> <code>XCast/XCastImplementation.h</code> | <strong>Line:</strong> 173 | <strong>Original severity:</strong> ⚠️ WARNING | <strong>False positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Several one-shot background tasks use raw <code>std::thread</code> instead of managed WorkerPool jobs.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.h:173-184
+std::thread powerModeChangeThread([parent, guard]() { ... });
+powerModeChangeThread.detach();
+std::thread networkStandbyModeChangeThread = std::thread(...);
+networkStandbyModeChangeThread.detach();</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed at <code>XCast/XCastImplementation.h:173</code>, <code>XCast/XCastImplementation.h:183</code>, <code>XCast/XCastImplementation.cpp:316</code>.</li>
+<li>The repo guideline shows a <code>std::thread</code> member that is joined in Deinitialize as the accepted pattern (<code>.github/instructions/Pluginlifecycle.instructions.md:62-80</code>, <code>.github/instructions/Pluginlifecycle.instructions.md:189-205</code>); it does not mandate WorkerPool. The real problem is the missing tracking/join, covered by issue 11.</li>
+<li>WorkerPool is not an obvious drop-in: some of these tasks block (<code>sleep(1)</code> at <code>XCast/XCastImplementation.cpp:687</code>, gdial start/stop), which would tie up shared pool threads.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Fix the lifecycle first (issue 11). Use WorkerPool only for short non-blocking jobs such as event dispatch, which the plugin already does (<code>XCast/XCastImplementation.cpp:997</code>, <code>Core::IWorkerPool::Instance().Submit</code>).</p>
+<p><strong>Regression risk:</strong> Blocking jobs on the shared Thunder WorkerPool can delay unrelated plugins and activations.</p>
+<p><strong>Reproduction:</strong> Not applicable: structural observation.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-20">Issue 20</h3>
+<p><strong>rule_79 - No Hardcoded Plugin Callsigns</strong> <span class="badge b-partial">PARTIALLY VALID</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 263 | <strong>Original severity:</strong> ⚠️ WARNING | <strong>False positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Callsigns for System, NetworkManager, AppManager, AppActions and DeviceInfo are embedded in code; recommends reading them from plugin configuration.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:263, 390, 498, 611; XCast/XCastManager.cpp:586
+"org.rdk.System"  "org.rdk.NetworkManager"  "org.rdk.AppManager"  "org.rdk.AppActions"  "DeviceInfo"</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed literals: <code>XCast/XCastImplementation.cpp:263</code>, <code>XCast/XCastImplementation.cpp:390</code>, <code>XCast/XCastImplementation.cpp:498</code>, <code>XCast/XCastImplementation.cpp:611</code>, <code>XCast/XCastManager.cpp:586</code>. <code>SYSTEM_CALLSIGN</code> is defined (<code>XCast/XCastImplementation.h:47</code>) but the code uses the literal instead.</li>
+<li>The repo's guideline examples use fixed constants (<code>USERSETTINGS_CALLSIGN</code> at <code>.github/instructions/Pluginimplementation.instructions.md:20</code>, <code>NETWORK_MANAGER_CALLSIGN</code> at <code>.github/instructions/Pluginimplementation.instructions.md:164</code>) and mandates standardised <code>org.rdk.</code> callsigns (<code>.github/instructions/Pluginconfig.instructions.md:13</code>), so configurable callsigns are not required.</li>
+<li>Good practice already present: <code>getSerialNumberFromDeviceInfo</code> acquires DeviceInfo on demand and releases it (<code>XCast/XCastManager.cpp:586-602</code>).</li>
+</ul>
+<p><strong>Recommended fix:</strong> Define one named constant per callsign (reuse <code>SYSTEM_CALLSIGN</code>) and use it at each call site.</p>
+<p><strong>Regression risk:</strong> None for constants. Config-driven callsigns would need a Config class and conf.in changes, beyond what the repo requires.</p>
+<p><strong>Reproduction:</strong> Not applicable.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-21">Issue 21</h3>
+<p><strong>rule_82 - No sleep() in Plugin Code</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 180 | <strong>Original severity:</strong> ⚠️ WARNING | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Teardown polling uses <code>usleep()</code> and power-state handling uses <code>sleep(1)</code>, blocking threads instead of using event-driven completion.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:180, 687
+usleep(100000); // 100ms   (Deinitialize wait loop)
+sleep(1);                  (power-state restart path)</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>XCast/XCastImplementation.cpp:180</code> (up to 50 x 100 ms) and <code>XCast/XCastImplementation.cpp:687</code>.</li>
+<li>The poll is a workaround for the missing worker lifecycle (issue 11/12); a condition variable or joinable workers would remove it. <code>Deinitialize</code> is documented by Thunder as running on a pool thread (IPlugin.h comments, read from the public Thunder GitHub, not from the SDK used by this build), so a long poll blocks a shared thread.</li>
+<li>The <code>sleep(1)</code> runs on the detached power worker, not on the pool, and only separates the <code>Deinitialize()</code>/<code>Initialize()</code> pair in the restart path (<code>XCast/XCastImplementation.cpp:686-688</code>); its necessity is a design question.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Replace the poll with a completion signal (condition variable or joined threads); revisit whether the restart path needs the 1 s delay.</p>
+<p><strong>Regression risk:</strong> Replacing the 1 s sleep may change timing against gdial restart (socket/port release); needs device validation. Not tested.</p>
+<p><strong>Reproduction:</strong> Not deterministically reproducible without device timing; see Additional Observations for the self-wait case.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-22">Issue 22</h3>
+<p><strong>rule_34 - Startmode Declaration</strong> <span class="badge b-fp">FALSE POSITIVE</span><br><strong>File:</strong> <code>XCast/XCast.conf.in</code> | <strong>Line:</strong> 3 | <strong>Original severity:</strong> 💡 SUGGESTION | <strong>False positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> The conf declares legacy <code>autostart</code> but no explicit <code>startmode</code>; fix is <code>startmode = Activated</code>.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cmake"># XCast/XCast.conf.in:1-4
+precondition = ["Platform"]
+callsign = "org.rdk.Xcast"
+autostart = "@PLUGIN_XCAST_AUTOSTART@"
+startuporder = "@PLUGIN_XCAST_STARTUPORDER@"</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed facts: <code>autostart</code> is at <code>XCast/XCast.conf.in:3</code> and no <code>startmode</code> exists. But the repo's config guideline requires <code>autostart</code>, "set to false by default" (<code>.github/instructions/Pluginconfig.instructions.md:11</code>) and its example uses <code>autostart</code> (<code>.github/instructions/Pluginconfig.instructions.md:39</code>). The CMake option defaults to "false" (<code>XCast/CMakeLists.txt:22</code>) and <code>XCast.config</code> also uses <code>autostart</code> (<code>XCast/XCast.config:1</code>).</li>
+<li>The suggested <code>startmode = Activated</code> is equivalent to autostart on, which contradicts that default. The advisor itself notes the plugin is on the pre-5.0 namespace; <code>startmode</code> support in the Thunder version used here was not verified.</li>
+<li>A future Thunder 5 migration may need this change; that is a migration note, not a defect.</li>
+</ul>
+<p><strong>Recommended fix:</strong> No change now. Revisit when migrating to Thunder 5, mapping <code>PLUGIN_XCAST_AUTOSTART</code> to the appropriate <code>startmode</code>.</p>
+<p><strong>Regression risk:</strong> High if applied as suggested: the plugin would be activated at boot regardless of the <code>PLUGIN_XCAST_AUTOSTART</code> build option.</p>
+<p><strong>Reproduction:</strong> Not applicable.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-23">Issue 23</h3>
+<p><strong>rule_36 - Numeric Tuning Parameters</strong> <span class="badge b-partial">PARTIALLY VALID</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 371 | <strong>Original severity:</strong> 💡 SUGGESTION | <strong>False positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> PowerManager retry interval/count are hardcoded; fix reads them from <code>_config</code>.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:369-373
+_powerManagerPlugin = PowerManagerInterfaceBuilder(_T("org.rdk.PowerManager"))
+    .withIShell(service)
+    .withRetryIntervalMS(200)
+    .withRetryCount(25)
+    .createInterface();</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed at <code>XCast/XCastImplementation.cpp:371-372</code>. Other tuning values are also literal: locate-cast timers (<code>XCast/XCastImplementation.cpp:37-38</code>), the 50 x 100 ms wait (<code>XCast/XCastImplementation.cpp:179</code>).</li>
+<li>There is no <code>_config</code> member or Config class in the plugin (the advisor skips rule_35/51/66 for the same reason), and <code>XCast.conf.in</code> carries no tuning keys (<code>XCast/XCast.conf.in:1-10</code>). The proposed snippet therefore references symbols that do not exist.</li>
+<li>Worst case these retries block <code>Configure</code> for 25 x 200 ms = 5 s on the framework thread; a tuning knob only matters if deployments need different values, which the repo does not show.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Name the constants (for example <code>POWERMANAGER_RETRY_MS</code>/<code>COUNT</code>). Introduce configuration only if a real need appears.</p>
+<p><strong>Regression risk:</strong> Introducing a Config class changes Initialize/Configure flow and the conf.in contract; unnecessary risk for a cosmetic gain.</p>
+<p><strong>Reproduction:</strong> Not applicable.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-24">Issue 24</h3>
+<p><strong>rule_39 - #pragma once</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastCommon.h</code> | <strong>Line:</strong> 24 | <strong>Original severity:</strong> 💡 SUGGESTION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> <code>XCastCommon.h</code> and <code>XCastNotifier.h</code> use legacy include guards instead of <code>#pragma once</code>.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastCommon.h:23-24 (report cites 24; guard starts at 23)
+#ifndef __XCAST_COMMON_H__
+#define __XCAST_COMMON_H__
+// XCast/XCastNotifier.h:19-20
+#ifndef XCAST_NOTIFIER_H
+#define XCAST_NOTIFIER_H</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>XCast/XCastCommon.h:23-24</code> and <code>XCast/XCastNotifier.h:19-20</code>. <code>Module.h</code>, <code>XCast.h</code> and <code>XCastImplementation.h</code> use <code>#pragma once</code> (<code>XCast/XCast.h:32</code>, <code>XCast/XCastImplementation.h:20</code>).</li>
+<li><code>__XCAST_COMMON_H__</code> uses a double-underscore identifier, which is reserved in C++; harmless in practice.</li>
+<li>Not reported: <code>XCastManager.h</code> has neither a guard nor <code>#pragma once</code> (header starts with includes at <code>XCast/XCastManager.h:19</code> onward, no guard directive found by search).</li>
+</ul>
+<p><strong>Recommended fix:</strong> Use <code>#pragma once</code> in <code>XCastCommon.h</code> and <code>XCastNotifier.h</code>, and add it to <code>XCastManager.h</code>.</p>
+<p><strong>Regression risk:</strong> None.</p>
+<p><strong>Reproduction:</strong> Not applicable.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-25">Issue 25</h3>
+<p><strong>rule_48 - No Lock Held During Framework Callbacks</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 1002 | <strong>Original severity:</strong> 💡 SUGGESTION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> <code>Dispatch</code> holds <code>_adminLock</code> while invoking subscriber callbacks, which forward events to JSON-RPC clients; re-entrancy/deadlock risk.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:1002, 1016, 1059
+_adminLock.Lock();
+...
+(*index)-&gt;OnApplicationLaunchRequestWithParam(appName,strPayLoad,strQuery,strAddDataUrl);
+...
+_adminLock.Unlock();</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: lock at <code>XCast/XCastImplementation.cpp:1002</code>, callbacks from <code>XCast/XCastImplementation.cpp:1016</code>, unlock at <code>XCast/XCastImplementation.cpp:1059</code>. <code>Register</code>/<code>Unregister</code> take the same lock (<code>XCast/XCastImplementation.cpp:108</code>, <code>XCast/XCastImplementation.cpp:134</code>).</li>
+<li>Listeners are COM-RPC proxies of the wrapper's <code>Notification</code> (<code>XCast/XCast.h:50</code>), which only emit JSON-RPC events (<code>XCast/XCast.h:77</code>) and do not call back into the implementation, so a concrete deadlock was not found. The practical risk is a stalled remote call blocking <code>Unregister</code> during <code>XCast::Deinitialize</code> (<code>XCast/XCast.cpp:128</code>).</li>
+<li>Holding the lock around dispatch is a common Thunder pattern, hence LOW.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Under the lock, copy the listener list and <code>AddRef()</code> each entry; unlock; notify; <code>Release()</code> each entry.</p>
+<p><strong>Regression risk:</strong> Releasing the lock allows two <code>Dispatch</code> jobs on different WorkerPool threads to notify the same listener concurrently, so event ordering is no longer serialised. A listener may also receive a callback shortly after <code>Unregister</code> returns (needs the AddRef to stay valid). Not tested.</p>
+<p><strong>Reproduction:</strong> Preconditions: a subscriber whose callback blocks. Steps: trigger an app launch request, then call <code>Unregister</code> from another thread. Expected by the advisor: <code>Unregister</code> waits for the callback. Not executed.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h3 id="issue-26">Issue 26</h3>
+<p><strong>rule_60 - Lock Scope Minimized</strong> <span class="badge b-confirmed">CONFIRMED</span><br><strong>File:</strong> <code>XCast/XCastImplementation.cpp</code> | <strong>Line:</strong> 1002 | <strong>Original severity:</strong> 💡 SUGGESTION | <strong>False positive?:</strong> NO | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> <code>_adminLock</code> covers JSON extraction and all listener callbacks; only iteration over a stable snapshot needs synchronisation.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// XCast/XCastImplementation.cpp:1002-1059
+_adminLock.Lock();
+// per listener: params["appName"].String() ... then callback
+_adminLock.Unlock();</code></pre>
+<p><strong>Validation reasoning:</strong></p><ul>
+<li>Confirmed: <code>XCast/XCastImplementation.cpp:1002-1059</code>. <code>params[...]</code> extraction (<code>XCast/XCastImplementation.cpp:1012-1015</code> for the first case) runs inside the per-listener loop, so it is repeated per listener while locked.</li>
+<li>Duplicate of issue 25 for the callback part; the extra point is hoisting the extraction out of the loop.</li>
+</ul>
+<p><strong>Recommended fix:</strong> Extract the strings once before taking the lock; apply the snapshot approach from issue 25.</p>
+<p><strong>Regression risk:</strong> Same as issue 25.</p>
+<p><strong>Reproduction:</strong> Not applicable.</p>
+<p><a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a></p>
+
+<h2>Additional Observations</h2>
+<p>Outside the advisor report; not counted in the totals above.</p><ul>
+<li>Restart path self-wait: <code>threadPowerModeChangeEvent</code> calls <code>Deinitialize()</code> (<code>XCast/XCastImplementation.cpp:686</code>) from a worker that still holds its <code>ScopedCounter</code> (<code>XCast/XCastImplementation.h:171</code>), while <code>Deinitialize()</code> polls that same counter (<code>XCast/XCastImplementation.cpp:179-185</code>). By code reading the loop always runs its full 5 s before continuing, then <code>sleep(1)</code> (<code>XCast/XCastImplementation.cpp:687</code>). Not run.</li>
+<li>Restart path resource loss: the same <code>Deinitialize()</code> unregisters PowerManager handlers and resets/releases PowerManager, SystemServices, AppManager and AppActions (<code>XCast/XCastImplementation.cpp:190-224</code>), but <code>Initialize(bool)</code> (<code>XCast/XCastImplementation.cpp:153-170</code>) only re-creates <code>XCastManager</code>. By code reading, power, friendly-name and AppManager notifications are not re-registered after the first deep-sleep wake (NetworkManager is re-acquired lazily). Needs L1/device verification.</li>
+<li><code>XCastManager.h</code> has no include guard (<code>XCast/XCastManager.h:19</code>); not in the advisor report.</li>
+<li>Advisor line-number accuracy: issue 16 (<code>XCast.h:69</code> should be 127-128), issue 18 (<code>XCastImplementation.h:204-214</code> should be 347-362) and issue 24 (<code>XCastCommon.h:24</code> should be 23) are off; all other cited lines were found at or next to the cited location.</li>
+<li>Advisor skip list not re-verified: rule_58 is skipped because "no JSON-RPC request handlers are registered", yet <code>Exchange::JXCast::Register(*this, _xcast)</code> (<code>XCast/XCast.cpp:94</code>) generates request handlers for the IXCast methods. Not validated either way.</li>
+</ul>
+<h2>Limitations</h2><ul>
+<li>Static review only. Nothing was built, linked, run, sanitised (TSAN/ASAN), or exercised on a device or in the L1/L2 tests. All "Reproduction" entries are hypotheses derived from code reading.</li>
+<li>Thunder/WPEFramework and interface headers (<code>IXCast.h</code>, <code>IPowerManager.h</code>, <code>INetworkManager.h</code>, <code>ISystemServices.h</code>, <code>IAppManager.h</code>, <code>IAppActions.h</code>, <code>PowerManagerInterface.h</code>, <code>Metadata</code>/<code>SERVICE_REGISTRATION</code> macros, <code>PluginSmartInterfaceType</code>, <code>ASSERT</code>, <code>CriticalSection</code>) are not in the repo and were not inspected. Conclusions depending on them are marked as unverified (issues 1, 3, 6, 9, 13, 14, 18).</li>
+<li>Whether ASSERT is active in a given build, which CMake variables the parent build provides (<code>CXX_STD</code>), compiler warning flags, and whether target plugins (NetworkManager, SystemServices, AppManager, AppActions) run in-process or out-of-process are build/deployment facts not available here.</li>
+<li>One public Thunder source file (<code>IPlugin.h</code> comments, GitHub master) was read to confirm that Initialize/Deinitialize run on a pool thread; it may differ from the SDK version actually used.</li>
+<li>The 6 rules the advisor skipped were not re-reviewed (only rule_58 was noted as questionable). The <code>gdial-server</code>, <code>tptimer</code>, RFC and IARM helper libraries were not reviewed.</li>
+<li>Severity ratings are the reviewer's judgment from code reading and the repo's own guidelines in <code>.github/instructions</code>; they are not measured impact.</li>
+</ul>
+</body>
+</html>
