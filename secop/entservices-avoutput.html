@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thunder Plugin Validation - entservices-avoutput</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cmake.min.js"></script>
+<script>hljs.highlightAll();</script>
+<style>
+  body { font-family: sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #24292f; line-height: 1.6; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 10px; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 6px; margin-top: 40px; }
+  h3 { margin-top: 30px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f6f8fa; font-weight: 600; }
+  tr:nth-child(even) { background: #f6f8fa; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; }
+  code { font-family: monospace; font-size: 13px; }
+  p > code { background: #eef0f3; padding: 2px 5px; border-radius: 3px; }
+  .back-link { font-size: 13px; color: #0969da; }
+  .status { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .confirmed { color: #82071e; background: #ffebe9; }
+  .partial { color: #7d4e00; background: #fff1d2; }
+  .false-positive { color: #116329; background: #dafbe1; }
+  .context { color: #57606a; background: #eaeef2; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 30px 0; }
+</style>
+</head>
+<body>
+<h1>Thunder Plugin Validation - entservices-avoutput</h1>
+<p><strong>Date:</strong> 2026-11-10<br>
+<strong>Repo:</strong> entservices-avoutput<br>
+<strong>Branch | Commit:</strong> develop | 32cfc6d<br>
+<strong>Source report:</strong> entservices-avoutput_2026-11-10.html<br>
+<strong>Total findings | Confirmed | Partially valid | False positives | Needs context | False-positive rate:</strong> 30 | 10 | 8 | 10 | 2 | 33.3%</p>
+<hr>
+<h2 id="validation-summary">Validation Summary</h2>
+<p>AVOutput exposes RDK picture and video-output controls through a Thunder plugin entry point, with TV and STB implementations selected at build time (<a href="../../../ARCHITECTURE.md#L5">ARCHITECTURE.md#L5-L7</a>). Of 30 findings, 10 are confirmed, 8 partially valid, 10 false positives, and 2 need more context. The strict false-positive rate is 33.3% (10/30), counting only FALSE POSITIVE results.</p>
+<p>The advisor identifies concrete risks in error propagation, unsynchronized TV state, worker/TV teardown ordering, legacy JSON-RPC helpers, and hardcoded paths. It overstates several style preferences and conflicts with repository-specific constructor-time JSON-RPC/IARM setup and destructor cleanup guidance (<a href="../../../.github/instructions/Plugin.instructions.md#L37">Plugin.instructions.md#L37-L79</a>, <a href="../../../ARCHITECTURE.md#L43">ARCHITECTURE.md#L43-L58</a>). HAL callback lifecycle and build variables require external SDK/build context.</p>
+<table>
+<thead><tr><th>Issue No.</th><th>Rule</th><th>File</th><th>Line</th><th>Original Severity</th><th>Validation Status</th><th>Actual Severity</th><th>One-line Justification</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><a href="#issue-1">rule_15 - Plugin Metadata Registration</a></td><td>AVOutput.cpp</td><td>32</td><td>VIOLATION</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>Metadata is optional; SERVICE_REGISTRATION is the documented required registration (<a href="../../../plugin/AVOutput.cpp#L32">AVOutput.cpp#L32</a>, <a href="../../../plugin/AVOutput.cpp#L44">AVOutput.cpp#L44</a>).</td></tr>
+<tr><td>2</td><td><a href="#issue-2">rule_22 - Observer Cleanup in Deinitialize</a></td><td>AVOutputTV.cpp</td><td>500</td><td>VIOLATION</td><td><span class="status context">NEEDS MORE CONTEXT</span></td><td>UNDETERMINED</td><td>Callbacks register, but the external HAL contract determines whether TvTerm removes them (<a href="../../../plugin/AVOutputTV.cpp#L500">AVOutputTV.cpp#L500</a>, <a href="../../../plugin/AVOutputTV.cpp#L552">AVOutputTV.cpp#L552</a>).</td></tr>
+<tr><td>3</td><td><a href="#issue-3">rule_24 - Constructor Must Be Empty</a></td><td>AVOutputTV.cpp</td><td>291</td><td>VIOLATION</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>Constructor setup is explicitly the local AVOutput pattern (<a href="../../../plugin/AVOutputTV.cpp#L283">AVOutputTV.cpp#L283-L448</a>, <a href="../../../.github/instructions/Plugin.instructions.md#L37">Plugin.instructions.md#L37-L79</a>).</td></tr>
+<tr><td>4</td><td><a href="#issue-4">rule_26 - Initialize Returns Error String on Failure</a></td><td>AVOutputTV.cpp</td><td>490</td><td>VIOLATION</td><td><span class="status confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>TvInit failure is logged but the plugin entry returns success (<a href="../../../plugin/AVOutputTV.cpp#L490">AVOutputTV.cpp#L490</a>, <a href="../../../plugin/AVOutput.cpp#L70">AVOutput.cpp#L70-L74</a>).</td></tr>
+<tr><td>5</td><td><a href="#issue-5">rule_28 - No Plugin Lifecycle Dependencies in Destructor</a></td><td>AVOutputTV.cpp</td><td>465</td><td>VIOLATION</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>Repo lifecycle guidance explicitly assigns worker/IARM cleanup to the destructor (<a href="../../../plugin/AVOutputTV.cpp#L453">AVOutputTV.cpp#L453-L466</a>, <a href="../../../.github/instructions/Pluginlifecycle.instructions.md#L62">Pluginlifecycle.instructions.md#L62-L78</a>).</td></tr>
+<tr><td>6</td><td><a href="#issue-6">rule_29 - JSON-RPC Register/Unregister Pairing</a></td><td>AVOutputTV.cpp</td><td>293</td><td>VIOLATION</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>Manual registrations follow local constructor guidance; generated-stub unregistration does not apply here (<a href="../../../plugin/AVOutputTV.cpp#L27">AVOutputTV.cpp#L27-L35</a>, <a href="../../../.github/instructions/Plugin.instructions.md#L37">Plugin.instructions.md#L37-L69</a>).</td></tr>
+<tr><td>7</td><td><a href="#issue-7">rule_31 - No Hardcoded Paths</a></td><td>AVOutputTV.h</td><td>91</td><td>VIOLATION</td><td><span class="status confirmed">CONFIRMED</span></td><td>LOW</td><td>System paths are literal in the TV header and profile helper (<a href="../../../plugin/AVOutputTV.h#L84">AVOutputTV.h#L84-L104</a>, <a href="../../../helpers/UtilsSearchRDKProfile.h#L41">UtilsSearchRDKProfile.h#L41-L49</a>).</td></tr>
+<tr><td>8</td><td><a href="#issue-8">rule_37 - CXX_STANDARD Uses Thunder Variable</a></td><td>CMakeLists.txt</td><td>80</td><td>VIOLATION</td><td><span class="status partial">PARTIALLY VALID</span></td><td>LOW</td><td>C++11 is hardcoded, but CXX_STD is not defined in checked-in CMake files (<a href="../../../plugin/CMakeLists.txt#L31">plugin/CMakeLists.txt#L31-L33</a>, <a href="../../../plugin/CMakeLists.txt#L78">plugin/CMakeLists.txt#L78-L81</a>).</td></tr>
+<tr><td>9</td><td><a href="#issue-9">rule_41 - Reverse-Order Cleanup</a></td><td>AVOutputTV.cpp</td><td>547</td><td>VIOLATION</td><td><span class="status partial">PARTIALLY VALID</span></td><td>MEDIUM</td><td>TvTerm precedes worker/IARM teardown; HAL callback cleanup semantics remain external (<a href="../../../plugin/AVOutputTV.cpp#L453">AVOutputTV.cpp#L453-L466</a>, <a href="../../../plugin/AVOutputTV.cpp#L547">AVOutputTV.cpp#L547-L552</a>).</td></tr>
+<tr><td>10</td><td><a href="#issue-10">rule_47 - Shared State Protected by CriticalSection</a></td><td>AVOutputTV.cpp</td><td>233</td><td>VIOLATION</td><td><span class="status confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>IARM and RPC paths access the same ordinary fields without a shared lock (<a href="../../../plugin/AVOutputTV.cpp#L225">AVOutputTV.cpp#L225-L267</a>, <a href="../../../plugin/AVOutputTVHelper.cpp#L2718">AVOutputTVHelper.cpp#L2718-L2741</a>).</td></tr>
+<tr><td>11</td><td><a href="#issue-11">rule_52 - IARM Register/Unregister Pairing</a></td><td>AVOutputTV.cpp</td><td>6657</td><td>VIOLATION</td><td><span class="status partial">PARTIALLY VALID</span></td><td>MEDIUM</td><td>Handlers are removed, but only on destruction after TvTerm may have run (<a href="../../../plugin/AVOutputTV.cpp#L547">AVOutputTV.cpp#L547-L552</a>, <a href="../../../plugin/AVOutputTV.cpp#L6655">AVOutputTV.cpp#L6655-L6677</a>).</td></tr>
+<tr><td>12</td><td><a href="#issue-12">rule_53 - Handler Registration Order</a></td><td>AVOutputTV.cpp</td><td>291</td><td>VIOLATION</td><td><span class="status confirmed">CONFIRMED</span></td><td>MEDIUM</td><td>IARM registers before TvInit, and an event handler can call SetAspectRatio (<a href="../../../plugin/AVOutputTV.cpp#L283">AVOutputTV.cpp#L283-L295</a>, <a href="../../../plugin/AVOutputTV.cpp#L490">AVOutputTV.cpp#L490-L499</a>).</td></tr>
+<tr><td>13</td><td><a href="#issue-13">rule_54 - Use Core::ERROR_* for Handler Failure Codes</a></td><td>AVOutputTV.cpp</td><td>6033</td><td>VIOLATION</td><td><span class="status confirmed">CONFIRMED</span></td><td>LOW</td><td>Three raw -1 returns occur in a uint32_t handler that otherwise uses the response macro (<a href="../../../plugin/AVOutputTV.cpp#L5980">AVOutputTV.cpp#L5980-L6047</a>).</td></tr>
+<tr><td>14</td><td><a href="#issue-14">rule_58 - JSON-RPC Handlers Are Re-entrant Safe</a></td><td>AVOutputTVHelper.cpp</td><td>2723</td><td>VIOLATION</td><td><span class="status partial">PARTIALLY VALID</span></td><td>MEDIUM</td><td>Zoom state is shared unsafely; map population/read overlap depends on initialization dispatch timing (<a href="../../../plugin/AVOutputTVHelper.cpp#L75">AVOutputTVHelper.cpp#L75-L123</a>, <a href="../../../plugin/AVOutputTVHelper.cpp#L2718">AVOutputTVHelper.cpp#L2718-L2741</a>).</td></tr>
+<tr><td>15</td><td><a href="#issue-15">rule_61 - Plugin Threads Joined in Deinitialize</a></td><td>AVOutputTV.cpp</td><td>448</td><td>VIOLATION</td><td><span class="status partial">PARTIALLY VALID</span></td><td>MEDIUM</td><td>The worker joins in destruction, after Deinitialize calls TvTerm (<a href="../../../plugin/AVOutputTV.cpp#L448">AVOutputTV.cpp#L448-L466</a>, <a href="../../../plugin/AVOutputTV.cpp#L547">AVOutputTV.cpp#L547-L552</a>).</td></tr>
+<tr><td>16</td><td><a href="#issue-16">rule_62 - Deinitialize Pointer Safety</a></td><td>AVOutputTV.cpp</td><td>453</td><td>VIOLATION</td><td><span class="status context">NEEDS MORE CONTEXT</span></td><td>UNDETERMINED</td><td>Instance is not visibly cleared; callback survival beyond teardown depends on external HAL/IARM behavior (<a href="../../../plugin/AVOutputTV.cpp#L35">AVOutputTV.cpp#L35-L36</a>, <a href="../../../plugin/AVOutputTV.cpp#L6655">AVOutputTV.cpp#L6655-L6677</a>).</td></tr>
+<tr><td>17</td><td><a href="#issue-17">rule_68 - No Deprecated JSON-RPC APIs</a></td><td>AVOutputTV.cpp</td><td>27</td><td>VIOLATION</td><td><span class="status confirmed">CONFIRMED</span></td><td>LOW</td><td>Live code uses helpers explicitly marked DO NOT USE THIS (<a href="../../../plugin/AVOutputTV.cpp#L27">AVOutputTV.cpp#L27-L28</a>, <a href="../../../helpers/UtilsJsonRpc.h#L20">UtilsJsonRpc.h#L20-L83</a>).</td></tr>
+<tr><td>18</td><td><a href="#issue-18">rule_03 - Module.h Uses #pragma once</a></td><td>Module.h</td><td>20</td><td>WARNING</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>The include guard matches the repo module-instructions example (<a href="../../../plugin/Module.h#L20">Module.h#L20-L26</a>, <a href="../../../.github/instructions/Pluginmodule.instructions.md#L13">Pluginmodule.instructions.md#L13-L22</a>).</td></tr>
+<tr><td>19</td><td><a href="#issue-19">rule_06 - NULL vs nullptr</a></td><td>AVOutputTVHelper.cpp</td><td>2058</td><td>WARNING</td><td><span class="status confirmed">CONFIRMED</span></td><td>LOW</td><td>NULL is used in pointer contexts (<a href="../../../plugin/AVOutputTVHelper.cpp#L2053">AVOutputTVHelper.cpp#L2053-L2059</a>, <a href="../../../helpers/UtilsSearchRDKProfile.h#L41">UtilsSearchRDKProfile.h#L41-L58</a>).</td></tr>
+<tr><td>20</td><td><a href="#issue-20">rule_14 - Special Members Deleted (Main Class)</a></td><td>AVOutput.h</td><td>51</td><td>WARNING</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>Deleted copy operations suppress implicit move operations under C++11 rules (<a href="../../../plugin/AVOutput.h#L47">AVOutput.h#L47-L53</a>).</td></tr>
+<tr><td>21</td><td><a href="#issue-21">rule_49 - Worker Jobs Safe After Deinitialize</a></td><td>AVOutputTVHelper.cpp</td><td>3805</td><td>WARNING</td><td><span class="status partial">PARTIALLY VALID</span></td><td>MEDIUM</td><td>The loop drains tasks; the stop request is destructor-owned and TvTerm is in Deinitialize (<a href="../../../plugin/AVOutputTVHelper.cpp#L3810">AVOutputTVHelper.cpp#L3810-L3833</a>, <a href="../../../plugin/AVOutputTV.cpp#L547">AVOutputTV.cpp#L547-L552</a>).</td></tr>
+<tr><td>22</td><td><a href="#issue-22">rule_50 - File Descriptors / Sockets Wrapped in RAII</a></td><td>UtilsSearchRDKProfile.h</td><td>48</td><td>WARNING</td><td><span class="status confirmed">CONFIRMED</span></td><td>INFORMATIONAL</td><td>Raw fopen/fgets is used, but the successful-open path calls fclose (<a href="../../../helpers/UtilsSearchRDKProfile.h#L43">UtilsSearchRDKProfile.h#L43-L74</a>).</td></tr>
+<tr><td>23</td><td><a href="#issue-23">rule_55 - Event Constants and Typed JSON Payloads</a></td><td>AVOutputTV.cpp</td><td>178</td><td>WARNING</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>Inline event strings match the local notification example (<a href="../../../plugin/AVOutputTV.cpp#L174">AVOutputTV.cpp#L174-L215</a>, <a href="../../../.github/instructions/Pluginimplementation.instructions.md#L37">Pluginimplementation.instructions.md#L37-L57</a>).</td></tr>
+<tr><td>24</td><td><a href="#issue-24">rule_70 - No printf - Use Thunder Tracing</a></td><td>AVOutputTVHelper.cpp</td><td>338</td><td>WARNING</td><td><span class="status partial">PARTIALLY VALID</span></td><td>LOW</td><td>Direct output exists, but LOG* wrappers are fprintf-based rather than Thunder tracing (<a href="../../../plugin/AVOutputTVHelper.cpp#L338">AVOutputTVHelper.cpp#L338-L345</a>, <a href="../../../helpers/UtilsLogging.h#L24">UtilsLogging.h#L24-L26</a>).</td></tr>
+<tr><td>25</td><td><a href="#issue-25">rule_74 - Prefer WorkerPool for Background Tasks</a></td><td>AVOutputTV.cpp</td><td>448</td><td>WARNING</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>The dedicated worker is documented as the current design (<a href="../../../plugin/AVOutputTV.cpp#L448">AVOutputTV.cpp#L448-L466</a>, <a href="../../../ARCHITECTURE.md#L53">ARCHITECTURE.md#L53-L58</a>).</td></tr>
+<tr><td>26</td><td><a href="#issue-26">rule_82 - No sleep() in Plugin Code</a></td><td>UtilsIarm.h</td><td>70</td><td>WARNING</td><td><span class="status confirmed">CONFIRMED</span></td><td>LOW</td><td>IARM init sleeps between retries and is called during construction (<a href="../../../helpers/UtilsIarm.h#L45">UtilsIarm.h#L45-L73</a>, <a href="../../../plugin/AVOutputTV.cpp#L283">AVOutputTV.cpp#L283-L295</a>).</td></tr>
+<tr><td>27</td><td><a href="#issue-27">rule_34 - Startmode Declaration</a></td><td>AVOutput.conf.in</td><td>3</td><td>SUGGESTION</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>The config template and resolved config use the documented autostart property (<a href="../../../plugin/AVOutput.conf.in#L1">AVOutput.conf.in#L1-L4</a>, <a href="../../../plugin/AVOutput.config#L1">AVOutput.config#L1-L2</a>).</td></tr>
+<tr><td>28</td><td><a href="#issue-28">rule_36 - No Hardcoded Numeric Tuning Parameters</a></td><td>UtilsIarm.h</td><td>72</td><td>SUGGESTION</td><td><span class="status confirmed">CONFIRMED</span></td><td>LOW</td><td>Retry count and sleep delay are literal values (<a href="../../../helpers/UtilsIarm.h#L52">UtilsIarm.h#L52-L72</a>).</td></tr>
+<tr><td>29</td><td><a href="#issue-29">rule_39 - #pragma once</a></td><td>AVOutputTV.h</td><td>20</td><td>SUGGESTION</td><td><span class="status false-positive">FALSE POSITIVE</span></td><td>INFORMATIONAL</td><td>Traditional include guards are valid and match repo module guidance (<a href="../../../plugin/AVOutputTV.h#L20">AVOutputTV.h#L20-L22</a>, <a href="../../../.github/instructions/Pluginmodule.instructions.md#L13">Pluginmodule.instructions.md#L13-L22</a>).</td></tr>
+<tr><td>30</td><td><a href="#issue-30">rule_44 - CMake NAMESPACE Variable</a></td><td>CMakeLists.txt</td><td>93</td><td>SUGGESTION</td><td><span class="status partial">PARTIALLY VALID</span></td><td>LOW</td><td>The install path is hardcoded; the proposed STORAGE_DIRECTORY variable is unverified (<a href="../../../plugin/CMakeLists.txt#L23">plugin/CMakeLists.txt#L23-L27</a>, <a href="../../../plugin/CMakeLists.txt#L92">plugin/CMakeLists.txt#L92-L93</a>).</td></tr>
+</tbody>
+</table>
+<hr>
+<h2>Detailed Validation</h2>
+
+<h3 id="issue-1">Issue 1</h3>
+<p><strong>rule_15 - Plugin Metadata Registration</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutput.cpp</code> | <strong>Line:</strong> 32<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Metadata and SERVICE_REGISTRATION register the same class twice.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutput.cpp:32-44
+static Plugin::Metadata&lt;Plugin::AVOutput&gt; metadata(...);
+SERVICE_REGISTRATION(AVOutput, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);</code></pre>
+<p><strong>Validation reasoning:</strong> The repo instructions describe metadata as optional and SERVICE_REGISTRATION as required; this is not duplicate service registration (<a href="../../../plugin/AVOutput.cpp#L32">plugin/AVOutput.cpp#L32-L45</a>, <a href="../../../.github/instructions/Plugin.instructions.md#L11">Plugin.instructions.md#L11-L35</a>).</p>
+<p><strong>Recommended fix:</strong> None. Keep both declarations. <strong>Regression risk:</strong> Removing SERVICE_REGISTRATION could break plugin discovery.</p>
+<p><strong>Reproduction:</strong> Not applicable; source and local registration guidance disprove the claimed duplicate.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-2">Issue 2</h3>
+<p><strong>rule_22 - Observer Cleanup in Deinitialize</strong><br><span class="status context">NEEDS MORE CONTEXT</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 500<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> UNDETERMINED | <strong>Actual severity:</strong> UNDETERMINED</p>
+<p><strong>Advisor claimed:</strong> Five TV HAL callbacks are registered with <code>this</code> and never unregistered in Deinitialize.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:500-524
+RegisterVideoFormatChangeCB(&amp;callbackData);
+RegisterVideoContentChangeCB(&amp;ConcallbackData);
+RegisterVideoResolutionChangeCB(&amp;RescallbackData);
+RegisterVideoFrameRateChangeCB(&amp;FpscallbackData);
+RegisterVideoSourceChangeCB(&amp;SrccallbackData);</code></pre>
+<p><strong>Validation reasoning:</strong> Deinitialize calls TvTerm, but the HAL headers/implementation are external; this checkout cannot establish whether TvTerm removes callbacks or another unregister API is required (<a href="../../../plugin/AVOutputTV.cpp#L500">plugin/AVOutputTV.cpp#L500-L552</a>).</p>
+<p><strong>Recommended fix:</strong> Verify the linked HAL contract and explicitly unregister before TvTerm if required. <strong>Regression risk:</strong> An unsupported unregister call or wrong teardown order can break shutdown.</p>
+<p><strong>Reproduction:</strong> On an SDK/device, register, deactivate, then deliver a HAL event. Expected: no callback after teardown; actual external behavior is unverified.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-3">Issue 3</h3>
+<p><strong>rule_24 - Constructor Must Be Empty</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 291<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Constructor performs IARM setup, registers JSON-RPC methods, and starts a worker thread.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:291-292, 448
+InitializeIARM();
+registerMethod("getBacklight", &amp;AVOutputTV::getBacklight, this);
+workerThread = std::thread(&amp;AVOutputTV::paramUpdateWorker, this);</code></pre>
+<p><strong>Validation reasoning:</strong> The behavior is present, but this constructor-time setup is the explicit AVOutputTV pattern in local instructions and architecture documentation (<a href="../../../plugin/AVOutputTV.cpp#L283">plugin/AVOutputTV.cpp#L283-L448</a>, <a href="../../../.github/instructions/Plugin.instructions.md#L37">Plugin.instructions.md#L37-L79</a>).</p>
+<p><strong>Recommended fix:</strong> None solely for this rule. <strong>Regression risk:</strong> Moving setup without paired lifecycle/restart logic can omit registrations or break reactivation.</p>
+<p><strong>Reproduction:</strong> Not applicable; this is a mismatch with repository policy, not a demonstrated failure.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-4">Issue 4</h3>
+<p><strong>rule_26 - Initialize Returns Error String on Failure</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 490<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> TvInit failure is logged, but plugin activation still reports success.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:490-493
+ret = TvInit();
+if (ret != tvERROR_NONE) {
+    LOGERR("Platform Init failed, ret: %s", getErrorString(ret).c_str());
+}</code></pre>
+<p><strong>Validation reasoning:</strong> Device Initialize is void; AVOutput::Initialize continues and returns an empty success string (<a href="../../../plugin/AVOutputTV.cpp#L490">plugin/AVOutputTV.cpp#L490-L499</a>, <a href="../../../plugin/AVOutput.cpp#L70">plugin/AVOutput.cpp#L70-L74</a>).</p>
+<p><strong>Recommended fix:</strong> Propagate a status/error from device initialization and unwind partial setup. <strong>Regression risk:</strong> A signature change affects the STB implementation and callers.</p>
+<p><strong>Reproduction:</strong> On a TV target where TvInit returns nonzero, activate AVOutput. Expected: activation fails; actual code logs then returns success.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-5">Issue 5</h3>
+<p><strong>rule_28 - No Plugin Lifecycle Dependencies in Destructor</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 465<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Joining the worker and removing IARM handlers in the destructor violates plugin lifecycle rules.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:453-466
+queueCondition.notify_all();
+if (workerThread.joinable()) { workerThread.join(); }
+DeinitializeIARM();</code></pre>
+<p><strong>Validation reasoning:</strong> Repo lifecycle instructions explicitly assign worker/IARM teardown to this destructor. The separate post-TvTerm timing concern is evaluated in issues 9, 11, 15, and 21 (<a href="../../../.github/instructions/Pluginlifecycle.instructions.md#L62">Pluginlifecycle.instructions.md#L62-L78</a>).</p>
+<p><strong>Recommended fix:</strong> Do not move teardown solely for this finding. <strong>Regression risk:</strong> Per-activation IARM teardown would require correct re-registration on activation.</p>
+<p><strong>Reproduction:</strong> Not applicable to this specific rule; destructor cleanup is the documented local pattern.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-6">Issue 6</h3>
+<p><strong>rule_29 - JSON-RPC Register/Unregister Pairing</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 293<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Manual JSON-RPC registrations have no matching Unregister calls.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:27, 293
+#define registerMethod(...) for (...) GetHandler(i)-&gt;Register&lt;JsonObject, JsonObject&gt;(__VA_ARGS__)
+registerMethod("getBacklight", &amp;AVOutputTV::getBacklight, this);</code></pre>
+<p><strong>Validation reasoning:</strong> Manual AVOutput registrations are explicitly prescribed in the constructor; lifecycle unregister guidance applies to generated Exchange stubs, not this pattern (<a href="../../../.github/instructions/Plugin.instructions.md#L37">Plugin.instructions.md#L37-L69</a>).</p>
+<p><strong>Recommended fix:</strong> Verify Thunder inactive-dispatch semantics before adding unregistration. <strong>Regression risk:</strong> Deactivation-time unregistration may leave reactivated methods unavailable.</p>
+<p><strong>Reproduction:</strong> Requires Thunder runtime: call a method while the plugin is deactivated; inactive dispatch behavior is not visible in this source.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-7">Issue 7</h3>
+<p><strong>rule_31 - No Hardcoded Paths</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>plugin/AVOutputTV.h</code> | <strong>Line:</strong> 91<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Filesystem paths are hardcoded in the TV header and profile helper.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.h:91-93; helpers/UtilsSearchRDKProfile.h:43
+CIniFile(const std::string &amp; filename, const std::string &amp; filepath = "/etc/")
+opt_path = "/opt/panel/";
+const char* devPropPath = "/etc/device.properties";</code></pre>
+<p><strong>Validation reasoning:</strong> These locations are source literals rather than plugin-configured paths (<a href="../../../plugin/AVOutputTV.h#L84">plugin/AVOutputTV.h#L84-L104</a>, <a href="../../../helpers/UtilsSearchRDKProfile.h#L41">UtilsSearchRDKProfile.h#L41-L49</a>).</p>
+<p><strong>Recommended fix:</strong> Use configured/platform paths where products vary; retain documented platform defaults. <strong>Regression risk:</strong> Wrong defaults can prevent profile detection or capability loading.</p>
+<p><strong>Reproduction:</strong> On a target missing those files at the compiled paths, lookup fails or capability loading cannot proceed (<a href="../../../helpers/UtilsSearchRDKProfile.h#L43">UtilsSearchRDKProfile.h#L43-L51</a>).</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-8">Issue 8</h3>
+<p><strong>rule_37 - CXX_STANDARD Uses Thunder Variable</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/CMakeLists.txt</code> | <strong>Line:</strong> 80<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> C++ standard is hardcoded and should use <code>${CXX_STD}</code>.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cmake"># plugin/CMakeLists.txt:31-33, 78-81
+set (CMAKE_CXX_STANDARD 11)
+set_target_properties(${MODULE_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED YES)</code></pre>
+<p><strong>Validation reasoning:</strong> C++11 is hardcoded twice, but no CXX_STD definition exists in checked-in CMake files. The proposed replacement depends on external build configuration (<a href="../../../plugin/CMakeLists.txt#L31">plugin/CMakeLists.txt#L31-L33</a>, <a href="../../../plugin/CMakeLists.txt#L78">plugin/CMakeLists.txt#L78-L81</a>).</p>
+<p><strong>Recommended fix:</strong> Confirm the supported build’s actual standard variable; otherwise centralize the current value. <strong>Regression risk:</strong> An undefined or incompatible variable may break configuration or change language mode.</p>
+<p><strong>Reproduction:</strong> Configure with supported SDKs and inspect the resolved target standard; no build was run here.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-9">Issue 9</h3>
+<p><strong>rule_41 - Reverse-Order Cleanup</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 547<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Deinitialize calls only TvTerm and does not undo callbacks, JSON-RPC, IARM, or worker resources.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:547-552
+void AVOutputTV::Deinitialize()
+{
+    ret = TvTerm();
+}</code></pre>
+<p><strong>Validation reasoning:</strong> Worker/IARM teardown does exist in the destructor, but it follows TvTerm; callback cleanup behavior is unknown without HAL API evidence (<a href="../../../plugin/AVOutputTV.cpp#L453">plugin/AVOutputTV.cpp#L453-L466</a>, <a href="../../../plugin/AVOutputTV.cpp#L547">plugin/AVOutputTV.cpp#L547-L552</a>).</p>
+<p><strong>Recommended fix:</strong> Quiesce HAL work and observers before TvTerm while preserving reactivation. <strong>Regression risk:</strong> Stopping constructor-started resources per activation requires restart logic.</p>
+<p><strong>Reproduction:</strong> Deactivate with queued work or deliver an IARM event; expected no HAL access after termination, actual ordering permits a timing window.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-10">Issue 10</h3>
+<p><strong>rule_47 - Shared State Protected by CriticalSection</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 233<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> IARM/HAL callbacks and JSON-RPC handlers access shared members without locks.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:233, 257; plugin/AVOutputTVHelper.cpp:2723
+instance-&gt;m_isDisabledHdmiIn4KZoom = false;
+instance-&gt;m_currentHdmiInResoluton = eventData-&gt;data.hdmi_in_video_mode.resolution.pixelResolution;
+m_videoZoomMode = mode;</code></pre>
+<p><strong>Validation reasoning:</strong> The same ordinary state is accessed along IARM and RPC paths; the only visible mutex lock in AVOutputTV.cpp protects the worker queue, not these members (<a href="../../../plugin/AVOutputTV.cpp#L225">plugin/AVOutputTV.cpp#L225-L267</a>, <a href="../../../plugin/AVOutputTV.cpp#L453">plugin/AVOutputTV.cpp#L453-L459</a>, <a href="../../../plugin/AVOutputTVHelper.cpp#L2718">plugin/AVOutputTVHelper.cpp#L2718-L2741</a>).</p>
+<p><strong>Recommended fix:</strong> Synchronize state accesses or use a safe snapshot/ownership design. <strong>Regression risk:</strong> Holding locks across HAL calls can deadlock or increase callback latency.</p>
+<p><strong>Reproduction:</strong> On device, issue zoom RPCs while HDMI events arrive. Expected deterministic state; actual unsynchronized accesses constitute a data race.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-11">Issue 11</h3>
+<p><strong>rule_52 - IARM Register/Unregister Pairing</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 6657<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> IARM handlers are removed only from the destructor, not Deinitialize.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:6657-6674
+IARM_Bus_RegisterEventHandler(...);
+IARM_Bus_RemoveEventHandler(...);</code></pre>
+<p><strong>Validation reasoning:</strong> The handlers are removed, so “never removed” is incorrect. However, removal is destructor-owned while TvTerm is in Deinitialize; the callbacks can call SetAspectRatio (<a href="../../../plugin/AVOutputTV.cpp#L225">plugin/AVOutputTV.cpp#L225-L239</a>, <a href="../../../plugin/AVOutputTV.cpp#L547">plugin/AVOutputTV.cpp#L547-L552</a>, <a href="../../../plugin/AVOutputTV.cpp#L6655">plugin/AVOutputTV.cpp#L6655-L6677</a>).</p>
+<p><strong>Recommended fix:</strong> Gate or remove HAL-calling handlers before TvTerm if registrations are per activation. <strong>Regression risk:</strong> Re-registration must be correct across activation cycles.</p>
+<p><strong>Reproduction:</strong> Deliver an HDMI event after Deinitialize returns but before destruction. Expected safe no-op; actual handler remains registered during that interval.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-12">Issue 12</h3>
+<p><strong>rule_53 - Handler Registration Order</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 291<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> IARM handlers register in the constructor before TvInit; an event may call an uninitialized HAL.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:291, 490
+InitializeIARM();
+// later, in Initialize:
+ret = TvInit();</code></pre>
+<p><strong>Validation reasoning:</strong> The event handler calls SetAspectRatio, and registration precedes TvInit (<a href="../../../plugin/AVOutputTV.cpp#L225">plugin/AVOutputTV.cpp#L225-L239</a>, <a href="../../../plugin/AVOutputTV.cpp#L283">plugin/AVOutputTV.cpp#L283-L295</a>, <a href="../../../plugin/AVOutputTV.cpp#L490">plugin/AVOutputTV.cpp#L490-L499</a>).</p>
+<p><strong>Recommended fix:</strong> Initialize HAL before registering handlers or gate callback actions until ready. <strong>Regression risk:</strong> Delaying registration can miss early HDMI changes; take a state snapshot afterward.</p>
+<p><strong>Reproduction:</strong> Deliver HDMI status between constructor and TvInit. Expected no HAL call before readiness; source permits SetAspectRatio.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-13">Issue 13</h3>
+<p><strong>rule_54 - Use Core::ERROR_* for Handler Failure Codes</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 6033<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Three paths return raw -1 from a uint32_t handler.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:6033-6045
+if (ret != tvERROR_NONE) {
+    return -1;
+}
+returnResponse(false);</code></pre>
+<p><strong>Validation reasoning:</strong> Raw -1 converts to an unsigned value, unlike returnResponse(false), which returns Core::ERROR_GENERAL (<a href="../../../helpers/UtilsJsonRpc.h#L24">helpers/UtilsJsonRpc.h#L24-L34</a>).</p>
+<p><strong>Recommended fix:</strong> Return the documented framework failure code. <strong>Regression risk:</strong> Clients that special-case the raw value may see changed error mapping.</p>
+<p><strong>Reproduction:</strong> Force source/enum conversion failure in set2PointWB; expected documented error, actual return is unsigned -1.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-14">Issue 14</h3>
+<p><strong>rule_58 - JSON-RPC Handlers Are Re-entrant Safe</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 2723<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Zoom state and static capability maps are modified/read without synchronization.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTVHelper.cpp:84, 2723
+supportedSourcemap[info.rangeVector[i]] = stoi(info.indexVector[i]);
+m_videoZoomMode = mode;</code></pre>
+<p><strong>Validation reasoning:</strong> Zoom is shared with IARM callbacks and is unsynchronized. Maps are populated during initialization; concurrent RPC reads during that window are not established by this source (<a href="../../../plugin/AVOutputTV.cpp#L225">plugin/AVOutputTV.cpp#L225-L267</a>, <a href="../../../plugin/AVOutputTVHelper.cpp#L75">plugin/AVOutputTVHelper.cpp#L75-L123</a>, <a href="../../../plugin/AVOutputTVHelper.cpp#L2718">plugin/AVOutputTVHelper.cpp#L2718-L2741</a>).</p>
+<p><strong>Recommended fix:</strong> Synchronize zoom state; publish capability maps only after initialization or guard map access. <strong>Regression risk:</strong> Locks held over HAL/capability calls can serialize requests or deadlock.</p>
+<p><strong>Reproduction:</strong> Concurrent HDMI callback and zoom RPC can race; reproducing a map race requires runtime startup overlap.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-15">Issue 15</h3>
+<p><strong>rule_61 - Plugin Threads Joined in Deinitialize</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 448<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Worker starts in the constructor and is joined only in the destructor, not Deinitialize.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:448, 462-465, 552
+workerThread = std::thread(&amp;AVOutputTV::paramUpdateWorker, this);
+if (workerThread.joinable()) { workerThread.join(); }
+ret = TvTerm();</code></pre>
+<p><strong>Validation reasoning:</strong> Destructor cleanup follows local guidance, but the worker can remain active after TvTerm and the current ordering creates a lifetime hazard (<a href="../../../plugin/AVOutputTV.cpp#L448">plugin/AVOutputTV.cpp#L448-L466</a>, <a href="../../../plugin/AVOutputTV.cpp#L547">plugin/AVOutputTV.cpp#L547-L552</a>).</p>
+<p><strong>Recommended fix:</strong> Quiesce/cancel HAL-dependent work before TvTerm and restart the worker on reactivation if required. <strong>Regression risk:</strong> Stopping a constructor-started worker once can break later activations.</p>
+<p><strong>Reproduction:</strong> Deactivate with a queued/running update and observe whether it uses HAL after TvTerm.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-16">Issue 16</h3>
+<p><strong>rule_62 - Deinitialize Pointer Safety</strong><br><span class="status context">NEEDS MORE CONTEXT</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 453<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> UNDETERMINED | <strong>Actual severity:</strong> UNDETERMINED</p>
+<p><strong>Advisor claimed:</strong> Static instance is never cleared and callbacks can run after Deinitialize.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:35, 289
+AVOutputTV* AVOutputTV::instance = nullptr;
+AVOutputTV::instance = this;</code></pre>
+<p><strong>Validation reasoning:</strong> No clear is visible, but IARM removal occurs in destructor and HAL callback lifetime depends on external teardown guarantees. A dangling use is plausible, not proven here (<a href="../../../plugin/AVOutputTV.cpp#L453">plugin/AVOutputTV.cpp#L453-L466</a>, <a href="../../../plugin/AVOutputTV.cpp#L6655">plugin/AVOutputTV.cpp#L6655-L6677</a>).</p>
+<p><strong>Recommended fix:</strong> Confirm callback quiescence, then clear the pointer only after callbacks are stopped and in-flight work is safe. <strong>Regression risk:</strong> Early clearing drops valid events; clearing alone does not stop in-flight callback use.</p>
+<p><strong>Reproduction:</strong> Requires SDK/device timing: tear down while delivering IARM/HAL events and check for callback-after-lifetime behavior.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-17">Issue 17</h3>
+<p><strong>rule_68 - No Deprecated JSON-RPC APIs</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 27<br><strong>Original severity:</strong> VIOLATION | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Legacy registration, notification, and response helpers are used.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:27, 178
+Register&lt;JsonObject, JsonObject&gt;(__VA_ARGS__)
+sendNotify("onVideoFormatChanged", response);</code></pre>
+<p><strong>Validation reasoning:</strong> UtilsJsonRpc.h marks these helpers DO NOT USE THIS and points to generated Thunder JSON-RPC interfaces (<a href="../../../helpers/UtilsJsonRpc.h#L20">helpers/UtilsJsonRpc.h#L20-L83</a>, <a href="../../../plugin/AVOutputTV.cpp#L27">plugin/AVOutputTV.cpp#L27-L28</a>).</p>
+<p><strong>Recommended fix:</strong> Plan migration to generated interfaces. <strong>Regression risk:</strong> Public method/event schemas, error mapping, and client compatibility may change.</p>
+<p><strong>Reproduction:</strong> Not applicable to runtime; source confirms these macros are active.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-18">Issue 18</h3>
+<p><strong>rule_03 - Module.h Uses #pragma once</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/Module.h</code> | <strong>Line:</strong> 20<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Module.h uses a classic include guard rather than pragma once.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/Module.h:20-22
+#ifndef MODULE_PLUGIN_AVOUTPUT_H
+#define MODULE_PLUGIN_AVOUTPUT_H</code></pre>
+<p><strong>Validation reasoning:</strong> This valid include guard matches the repo’s Module.h instructions example (<a href="../../../plugin/Module.h#L20">plugin/Module.h#L20-L26</a>, <a href="../../../.github/instructions/Pluginmodule.instructions.md#L13">Pluginmodule.instructions.md#L13-L22</a>).</p>
+<p><strong>Recommended fix:</strong> None required. <strong>Regression risk:</strong> Style-only conversion adds churn and can introduce guard mistakes.</p>
+<p><strong>Reproduction:</strong> Not applicable; the guard prevents repeated inclusion.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-19">Issue 19</h3>
+<p><strong>rule_06 - NULL vs nullptr</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>plugin/AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 2058<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> NULL is used as a null pointer literal.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTVHelper.cpp:2058; helpers/UtilsSearchRDKProfile.h:44
+char *token = NULL;
+char line[256], *rdkProfile = NULL;</code></pre>
+<p><strong>Validation reasoning:</strong> These are pointer initializations; nullptr is the typed C++ null pointer literal (<a href="../../../plugin/AVOutputTVHelper.cpp#L2053">plugin/AVOutputTVHelper.cpp#L2053-L2059</a>, <a href="../../../helpers/UtilsSearchRDKProfile.h#L41">helpers/UtilsSearchRDKProfile.h#L41-L58</a>).</p>
+<p><strong>Recommended fix:</strong> Replace pointer NULL initializers/comparisons with nullptr. <strong>Regression risk:</strong> Low in C++; verify C interfaces before broad replacement.</p>
+<p><strong>Reproduction:</strong> Not applicable; source-level type-safety/style issue only.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-20">Issue 20</h3>
+<p><strong>rule_14 - Special Members Deleted (Main Class)</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutput.h</code> | <strong>Line:</strong> 51<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Move constructor and move assignment are not explicitly deleted.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutput.h:51-52
+AVOutput(const AVOutput&amp;) = delete;
+AVOutput&amp; operator=(const AVOutput&amp;) = delete;</code></pre>
+<p><strong>Validation reasoning:</strong> User-declared copy operations suppress implicit move operations in C++11, so the class is already non-movable (<a href="../../../plugin/AVOutput.h#L47">plugin/AVOutput.h#L47-L53</a>).</p>
+<p><strong>Recommended fix:</strong> Optional explicit move deletes only to document intent. <strong>Regression risk:</strong> Style/API declaration change without functional gain.</p>
+<p><strong>Reproduction:</strong> Not applicable; no implicit move operation is generated.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-21">Issue 21</h3>
+<p><strong>rule_49 - Worker Jobs Safe After Deinitialize</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 3805<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> MEDIUM</p>
+<p><strong>Advisor claimed:</strong> Queued worker tasks can execute after Deinitialize/TvTerm.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTVHelper.cpp:3817-3819
+if (shouldStopWorker &amp;&amp; paramUpdateQueue.empty()) { break; }
+task = std::move(paramUpdateQueue.front());</code></pre>
+<p><strong>Validation reasoning:</strong> The worker drains queued tasks; stop is requested in the destructor, while Deinitialize calls TvTerm (<a href="../../../plugin/AVOutputTVHelper.cpp#L3810">plugin/AVOutputTVHelper.cpp#L3810-L3833</a>, <a href="../../../plugin/AVOutputTV.cpp#L453">plugin/AVOutputTV.cpp#L453-L466</a>, <a href="../../../plugin/AVOutputTV.cpp#L547">plugin/AVOutputTV.cpp#L547-L552</a>).</p>
+<p><strong>Recommended fix:</strong> Prevent new task submissions and cancel/complete HAL work before TvTerm; restart worker on reactivation if stopped. <strong>Regression risk:</strong> Clearing pending work drops updates; draining may delay deactivation.</p>
+<p><strong>Reproduction:</strong> Queue an update, deactivate before execution, and observe whether it runs after TvTerm. Expected: no HAL access after termination.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-22">Issue 22</h3>
+<p><strong>rule_50 - File Descriptors / Sockets Wrapped in RAII</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>helpers/UtilsSearchRDKProfile.h</code> | <strong>Line:</strong> 48<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Profile search uses raw fopen/fgets instead of a Thunder file abstraction.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// helpers/UtilsSearchRDKProfile.h:48-49, 73
+file = fopen(devPropPath, "r");
+while (fgets(line, sizeof(line), file)) { ... }
+fclose(file);</code></pre>
+<p><strong>Validation reasoning:</strong> Raw C I/O is confirmed, but every successful-open path reaches fclose; this is not a demonstrated leak (<a href="../../../helpers/UtilsSearchRDKProfile.h#L43">helpers/UtilsSearchRDKProfile.h#L43-L74</a>).</p>
+<p><strong>Recommended fix:</strong> Consider Core::File or an RAII FILE owner if appropriate. <strong>Regression risk:</strong> Replacing line reads can change parsing/truncation behavior.</p>
+<p><strong>Reproduction:</strong> Not applicable to a leak; the successful-open path closes the handle.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-23">Issue 23</h3>
+<p><strong>rule_55 - Event Constants and Typed JSON Payloads</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 178<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Event names are inline string literals rather than named constants.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:178, 194
+sendNotify("onVideoFormatChanged", response);
+sendNotify("onVideoContentChanged", response);</code></pre>
+<p><strong>Validation reasoning:</strong> The repo’s event notification example uses the same inline literal pattern; no incorrect event name is demonstrated (<a href="../../../.github/instructions/Pluginimplementation.instructions.md#L37">Pluginimplementation.instructions.md#L37-L57</a>).</p>
+<p><strong>Recommended fix:</strong> None required; constants are optional if reuse warrants them. <strong>Regression risk:</strong> Event-name typo during refactoring can change the public event contract.</p>
+<p><strong>Reproduction:</strong> Not applicable absent evidence of a wrong event name.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-24">Issue 24</h3>
+<p><strong>rule_70 - No printf - Use Thunder Tracing</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 338<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Direct printf/cout should be replaced with Thunder tracing.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTVHelper.cpp:338; plugin/AVOutputTV.h:99
+printf("(%s):get supported mode is failed\\n", __func__);
+std::cout &lt;&lt; "AVOutput : Using " &lt;&lt; m_path &lt;&lt; std::endl;</code></pre>
+<p><strong>Validation reasoning:</strong> Direct console output exists, but the project LOG* wrappers use fprintf(stderr), not a Thunder tracing API (<a href="../../../helpers/UtilsLogging.h#L24">helpers/UtilsLogging.h#L24-L26</a>).</p>
+<p><strong>Recommended fix:</strong> Use project logging for consistent severity/source metadata; separately evaluate logging backend. <strong>Regression risk:</strong> Destination and format may change, affecting log collection.</p>
+<p><strong>Reproduction:</strong> Execute the capability-error or CIniFile path; console output is emitted. No device run was performed.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-25">Issue 25</h3>
+<p><strong>rule_74 - Prefer WorkerPool for Background Tasks</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutputTV.cpp</code> | <strong>Line:</strong> 448<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> A dedicated std::thread and queue should be replaced with Core::WorkerPool.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.cpp:448
+workerThread = std::thread(&amp;AVOutputTV::paramUpdateWorker, this);</code></pre>
+<p><strong>Validation reasoning:</strong> Architecture documentation identifies this dedicated worker as the current design; no WorkerPool availability or failure is established (<a href="../../../ARCHITECTURE.md#L53">ARCHITECTURE.md#L53-L58</a>).</p>
+<p><strong>Recommended fix:</strong> None solely for this preference. <strong>Regression risk:</strong> Migration can alter ordering, backpressure, shutdown, and cancellation behavior.</p>
+<p><strong>Reproduction:</strong> Not applicable; the abstraction choice alone is not a demonstrated defect.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-26">Issue 26</h3>
+<p><strong>rule_82 - No sleep() in Plugin Code</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>helpers/UtilsIarm.h</code> | <strong>Line:</strong> 70<br><strong>Original severity:</strong> WARNING | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> IARM initialization sleeps 100 ms between retries and is invoked in the constructor.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// helpers/UtilsIarm.h:70-72
+if (result == false) usleep(100000);
+} while ((result == false) &amp;&amp; (retryCount++ &lt; 20));</code></pre>
+<p><strong>Validation reasoning:</strong> This is a bounded synchronous retry delay and InitializeIARM is called from construction (<a href="../../../plugin/AVOutputTV.cpp#L283">plugin/AVOutputTV.cpp#L283-L295</a>, <a href="../../../helpers/UtilsIarm.h#L52">helpers/UtilsIarm.h#L52-L72</a>).</p>
+<p><strong>Recommended fix:</strong> Make retry/backoff configurable or asynchronous if startup latency warrants it. <strong>Regression risk:</strong> Removing retries can fail transient connections; async retry complicates readiness.</p>
+<p><strong>Reproduction:</strong> With IARM unavailable, time init; source sleeps between attempts up to its retry bound.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-27">Issue 27</h3>
+<p><strong>rule_34 - Startmode Declaration</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutput.conf.in</code> | <strong>Line:</strong> 3<br><strong>Original severity:</strong> SUGGESTION | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> startmode is absent and only legacy autostart is declared.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutput.conf.in:1-4
+autostart = "false"
+// plugin/AVOutput.config:1
+set (autostart true)</code></pre>
+<p><strong>Validation reasoning:</strong> The repo config instructions define autostart as the supported property; the template and resolved product config both set it (<a href="../../../.github/instructions/Pluginconfig.instructions.md#L5">Pluginconfig.instructions.md#L5-L25</a>).</p>
+<p><strong>Recommended fix:</strong> None unless the deployment migrates to a format requiring startmode. <strong>Regression risk:</strong> A conflicting property may change activation policy or be ignored by legacy runtime.</p>
+<p><strong>Reproduction:</strong> Not applicable; autostart is explicitly configured.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-28">Issue 28</h3>
+<p><strong>rule_36 - No Hardcoded Numeric Tuning Parameters</strong><br><span class="status confirmed">CONFIRMED</span> | <strong>File:</strong> <code>helpers/UtilsIarm.h</code> | <strong>Line:</strong> 72<br><strong>Original severity:</strong> SUGGESTION | <strong>False Positive?:</strong> NO | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Retry count and delay are hardcoded tuning values.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// helpers/UtilsIarm.h:70-72
+usleep(100000);
+retryCount++ &lt; 20;</code></pre>
+<p><strong>Validation reasoning:</strong> The delay and retry bound are literal values in a shared helper with no config parameter (<a href="../../../helpers/UtilsIarm.h#L45">helpers/UtilsIarm.h#L45-L73</a>).</p>
+<p><strong>Recommended fix:</strong> At minimum name constants; add configuration only if products need varying policy. <strong>Regression risk:</strong> Missing/malformed config can cause startup failure or excessive retry time.</p>
+<p><strong>Reproduction:</strong> Not applicable to correctness; source confirms the literals.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-29">Issue 29</h3>
+<p><strong>rule_39 - #pragma once</strong><br><span class="status false-positive">FALSE POSITIVE</span> | <strong>File:</strong> <code>plugin/AVOutputTV.h</code> | <strong>Line:</strong> 20<br><strong>Original severity:</strong> SUGGESTION | <strong>False Positive?:</strong> YES | <strong>Actual severity:</strong> INFORMATIONAL</p>
+<p><strong>Advisor claimed:</strong> Project headers use include guards rather than pragma once.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cpp">// plugin/AVOutputTV.h:20-22
+#ifndef AVOutputTV_H
+#define AVOutputTV_H</code></pre>
+<p><strong>Validation reasoning:</strong> Include guards are valid and shown in repository module guidance; no functional issue is identified (<a href="../../../plugin/AVOutputTV.h#L20">plugin/AVOutputTV.h#L20-L22</a>, <a href="../../../.github/instructions/Pluginmodule.instructions.md#L13">Pluginmodule.instructions.md#L13-L22</a>).</p>
+<p><strong>Recommended fix:</strong> None required. <strong>Regression risk:</strong> Broad conversion adds churn and can introduce guard mistakes.</p>
+<p><strong>Reproduction:</strong> Not applicable; the include guard prevents repeated inclusion.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h3 id="issue-30">Issue 30</h3>
+<p><strong>rule_44 - CMake NAMESPACE Variable</strong><br><span class="status partial">PARTIALLY VALID</span> | <strong>File:</strong> <code>plugin/CMakeLists.txt</code> | <strong>Line:</strong> 93<br><strong>Original severity:</strong> SUGGESTION | <strong>False Positive?:</strong> PARTIALLY | <strong>Actual severity:</strong> LOW</p>
+<p><strong>Advisor claimed:</strong> Install path hardcodes wpeframework and should use STORAGE_DIRECTORY.</p>
+<p><strong>Actual code:</strong></p><pre><code class="language-cmake"># plugin/CMakeLists.txt:23-27, 92-93
+set(NAMESPACE "WPEFramework" CACHE STRING "WPEFramework namespace")
+install(TARGETS ${MODULE_NAME}
+    DESTINATION lib/wpeframework/plugins)</code></pre>
+<p><strong>Validation reasoning:</strong> The path is hardcoded and conflicts with namespace-based install guidance, but STORAGE_DIRECTORY is not defined in checked-in CMake (<a href="../../../.github/instructions/Plugincmake.instructions.md#L5">Plugincmake.instructions.md#L5-L20</a>, <a href="../../../plugin/CMakeLists.txt#L23">plugin/CMakeLists.txt#L23-L27</a>, <a href="../../../plugin/CMakeLists.txt#L92">plugin/CMakeLists.txt#L92-L93</a>).</p>
+<p><strong>Recommended fix:</strong> Use the supported Thunder/CMake install-directory variable. <strong>Regression risk:</strong> Guessing an undefined variable can install to the wrong path or break packaging.</p>
+<p><strong>Reproduction:</strong> Configure/install across supported namespaces and inspect destination; no build/install was run here.</p>
+<a class="back-link" href="#validation-summary">⬆ Back to Validation Summary</a>
+<hr>
+
+<h2>Limitations</h2>
+<ul>
+<li>No build, unit tests, CTest, or device run was performed; conclusions are from source and repository documentation only.</li>
+<li>TV HAL headers/implementation are external; callback unregister behavior, TvTerm semantics, and callback quiescence are unverified (<a href="../../../plugin/AVOutputTV.cpp#L500">plugin/AVOutputTV.cpp#L500-L552</a>).</li>
+<li>Thunder JSON-RPC dispatch while deactivated and object destruction timing were not exercised (<a href="../../../.github/instructions/Plugin.instructions.md#L37">Plugin.instructions.md#L37-L79</a>).</li>
+<li>Supported build definitions for CXX_STD/install-directory variables and generated JSON-RPC dependencies were unavailable (<a href="../../../plugin/CMakeLists.txt#L23">plugin/CMakeLists.txt#L23-L33</a>, <a href="../../../plugin/CMakeLists.txt#L89">plugin/CMakeLists.txt#L89-L93</a>).</li>
+<li>Concurrency findings were not stress-tested or run under a race detector (<a href="../../../plugin/AVOutputTV.cpp#L225">plugin/AVOutputTV.cpp#L225-L267</a>, <a href="../../../plugin/AVOutputTVHelper.cpp#L2718">plugin/AVOutputTVHelper.cpp#L2718-L2741</a>).</li>
+</ul>
+<p><strong>Reviewed: 30/30</strong></p>
+</body>
+</html>
