@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thunder Plugin Review - entservices-displaysettings</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cmake.min.js"></script>
+<script>hljs.highlightAll();</script>
+<style>
+  body { font-family: sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #24292f; line-height: 1.6; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 10px; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 6px; margin-top: 40px; }
+  h3 { margin-top: 30px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; }
+  th { background: #f6f8fa; font-weight: 600; }
+  tr:nth-child(even) { background: #f6f8fa; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; }
+  code { font-family: monospace; font-size: 13px; }
+  p > code { background: #eef0f3; padding: 2px 5px; border-radius: 3px; }
+  .back-link { font-size: 13px; color: #0969da; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 30px 0; }
+</style>
+</head>
+<body>
+<h1>Thunder Plugin Review - entservices-displaysettings</h1>
+<p><strong>Date:</strong> 2026-11-06<br>
+<strong>Plugin:</strong> entservices-displaysettings<br>
+<strong>Repo:</strong> https://rganga607@github.com/rdkcentral/entservices-displaysettings.git<br>
+<strong>Branch:</strong> develop | <strong>Commit:</strong> 12275a2<br>
+<strong>Total Rules:</strong> 85 | <strong>Passed:</strong> 51 | <strong>Failed:</strong> 22 | <strong>Skipped:</strong> 12 | <strong>Exempted:</strong> 0</p>
+<hr>
+<h2 id="issue-summary">Issue Summary</h2>
+<table>
+<thead><tr><th>Issue No.</th><th>Status</th><th>Rule</th><th>File</th><th>Line</th><th>Issue</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>❌ VIOLATION</td><td><a href="#issue-1">rule_15 - Plugin Metadata Registration</a></td><td>DisplaySettings.cpp</td><td>169, 275</td><td>Same plugin class is registered through both metadata and service-registration mechanisms.</td></tr>
+<tr><td>2</td><td>❌ VIOLATION</td><td><a href="#issue-2">rule_24 - Constructor Must Be Empty</a></td><td>DisplaySettings.cpp</td><td>279, 283-293</td><td>Constructor performs handler creation, singleton setup, and RPC method registration.</td></tr>
+<tr><td>3</td><td>❌ VIOLATION</td><td><a href="#issue-3">rule_26 - Initialize Returns Error String on Failure</a></td><td>DisplaySettings.cpp</td><td>615-628</td><td>Device-manager initialization failure is logged, then Initialize returns the empty success string.</td></tr>
+<tr><td>4</td><td>❌ VIOLATION</td><td><a href="#issue-4">rule_31 - No Hardcoded Paths</a></td><td>DisplaySettings.cpp</td><td>80-81</td><td>Persistent zoom settings paths are embedded in source.</td></tr>
+<tr><td>5</td><td>❌ VIOLATION</td><td><a href="#issue-5">rule_37 - CXX_STANDARD Uses Thunder Variable</a></td><td>plugin/CMakeLists.txt</td><td>31</td><td>C++ standard is fixed to 11 instead of using the Thunder build variable.</td></tr>
+<tr><td>6</td><td>❌ VIOLATION</td><td><a href="#issue-6">rule_41 - Reverse-Order Cleanup</a></td><td>DisplaySettings.cpp</td><td>612-617, 644-684</td><td>PowerManager is released before later-acquired device manager and event registrations.</td></tr>
+<tr><td>7</td><td>❌ VIOLATION</td><td><a href="#issue-7">rule_42 - Observer Locking</a></td><td>DisplaySettings.cpp</td><td>5117, 5785-5789</td><td>Observer names are appended without the lock used while teardown iterates and clears the list.</td></tr>
+<tr><td>8</td><td>❌ VIOLATION</td><td><a href="#issue-8">rule_47 - Shared State Protected by CriticalSection</a></td><td>DisplaySettings.cpp</td><td>4709, 4738-4743, 6525-6528, 6644-6657</td><td>Shared ARC/SAD fields are accessed from callbacks and timer paths under absent or inconsistent locks.</td></tr>
+<tr><td>9</td><td>❌ VIOLATION</td><td><a href="#issue-9">rule_61 - Plugin Threads Joined in Deinitialize</a></td><td>DisplaySettings.cpp</td><td>4876-4877, 659</td><td>A detached audio-port worker is not joined; teardown only waits for a bounded interval.</td></tr>
+<tr><td>10</td><td>❌ VIOLATION</td><td><a href="#issue-10">rule_62 - Deinitialize Pointer Safety</a></td><td>DisplaySettings.cpp</td><td>659, 4851-4854, 698</td><td>After timeout, the worker can still dereference the singleton after it is cleared.</td></tr>
+<tr><td>11</td><td>❌ VIOLATION</td><td><a href="#issue-11">rule_63 - hresult Return Values Checked</a></td><td>DisplaySettings.cpp</td><td>644, 737</td><td>PowerManager Register and Unregister HRESULTs are discarded.</td></tr>
+<tr><td>12</td><td>❌ VIOLATION</td><td><a href="#issue-12">rule_83 - No Heavy Work in Initialize()</a></td><td>DisplaySettings.cpp</td><td>627, 473, 4293</td><td>Initialize synchronously enters audio-port setup, which makes a blocking JSON-RPC Invoke.</td></tr>
+<tr><td>13</td><td>⚠️ WARNING</td><td><a href="#issue-13">rule_06 - NULL vs nullptr</a></td><td>DisplaySettings.cpp</td><td>530, 5003</td><td>NULL is used as a null pointer argument and value.</td></tr>
+<tr><td>14</td><td>⚠️ WARNING</td><td><a href="#issue-14">rule_14 - Special Members Deleted (Main Class)</a></td><td>DisplaySettings.h</td><td>96-97</td><td>Move constructor and move assignment are not explicitly deleted.</td></tr>
+<tr><td>15</td><td>⚠️ WARNING</td><td><a href="#issue-15">rule_55 - Event Constants and Typed JSON Payloads</a></td><td>DisplaySettings.cpp</td><td>2067</td><td>Notifications use inline event names and manually assembled JSON payloads.</td></tr>
+<tr><td>16</td><td>⚠️ WARNING</td><td><a href="#issue-16">rule_64 - ASSERT Only for Programmer Invariants</a></td><td>DisplaySettings.cpp</td><td>720, 722</td><td>A nullable remote PowerManager proxy is asserted before a runtime null check.</td></tr>
+<tr><td>17</td><td>⚠️ WARNING</td><td><a href="#issue-17">rule_74 - Prefer WorkerPool for Background Tasks</a></td><td>DisplaySettings.cpp</td><td>598, 4876-4877</td><td>Background work uses raw std::thread, including a detached thread.</td></tr>
+<tr><td>18</td><td>⚠️ WARNING</td><td><a href="#issue-18">rule_79 - No Hardcoded Plugin Callsigns</a></td><td>DisplaySettings.cpp</td><td>59, 712, 4803</td><td>HdmiCecSink, PowerManager, and SecurityAgent callsigns are hardcoded.</td></tr>
+<tr><td>19</td><td>💡 SUGGESTION</td><td><a href="#issue-19">rule_34 - Startmode Declaration</a></td><td>DisplaySettings.conf.in</td><td>3</td><td>Explicit startmode is absent; the pre-Thunder 5 autostart setting is the legacy equivalent.</td></tr>
+<tr><td>20</td><td>💡 SUGGESTION</td><td><a href="#issue-20">rule_36 - No Hardcoded Numeric Tuning Parameters</a></td><td>DisplaySettings.cpp</td><td>714-716, 4293</td><td>Retry intervals/counts and remote-call timeouts are hardcoded.</td></tr>
+<tr><td>21</td><td>💡 SUGGESTION</td><td><a href="#issue-21">rule_48 - No Lock Held During Framework Callbacks</a></td><td>DisplaySettings.cpp</td><td>4905-4917, 6183</td><td>ARC state lock remains held while dispatching a framework notification.</td></tr>
+<tr><td>22</td><td>💡 SUGGESTION</td><td><a href="#issue-22">rule_60 - Lock Scope Minimized</a></td><td>DisplaySettings.cpp</td><td>4709-4743</td><td>SAD mutex spans device operations, timer work, and queue dispatch.</td></tr>
+</tbody></table>
+
+<h2>Detailed Findings</h2>
+<h3 id="issue-1">Issue 1</h3>
+<p><strong>rule_15 - Plugin Metadata Registration</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 169, 275</p>
+<p><strong>What's wrong:</strong> The same <code>Plugin::DisplaySettings</code> class is exposed once through <code>Plugin::Metadata</code> and again through <code>SERVICE_REGISTRATION</code>. Registering the same class through both mechanisms can produce duplicate plugin registration.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:169
+static Plugin::Metadata&lt;Plugin::DisplaySettings&gt; metadata(...);
+
+// DisplaySettings.cpp:275
+SERVICE_REGISTRATION(DisplaySettings, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);</code></pre>
+<p><strong>Fix:</strong> Keep only the registration mechanism required by this plugin's Thunder integration.</p>
+<pre><code class="language-cpp">// Retain one registration path; remove the duplicate declaration.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-2">Issue 2</h3>
+<p><strong>rule_24 - Constructor Must Be Empty</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 279, 283-293</p>
+<p><strong>What's wrong:</strong> The constructor sets the global singleton, creates the JSON-RPC handler, and registers methods. This couples object construction to service setup and gives the registration no matching lifecycle boundary.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:283-293
+DisplaySettings::_instance = this;
+m_client = nullptr;
+CreateHandler({ 2 });
+registerMethodLockedApi("getConnectedVideoDisplays", &amp;DisplaySettings::getConnectedVideoDisplays, this);</code></pre>
+<p><strong>Fix:</strong> Keep construction limited to member initialization. Move handler creation/registration and singleton publication into <code>Initialize()</code>, and undo registrations and singleton publication in <code>Deinitialize()</code>.</p>
+<pre><code class="language-cpp">DisplaySettings::DisplaySettings()
+    : PluginHost::JSONRPC()
+    , _pwrMgrNotification(*this)
+{
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-3">Issue 3</h3>
+<p><strong>rule_26 - Initialize Returns Error String on Failure</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 615-628</p>
+<p><strong>What's wrong:</strong> If <code>device::Manager::Initialize()</code> throws, the exception is logged but initialization continues and returns an empty string, which tells Thunder that activation succeeded.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:615-628
+device::Manager::Initialize();
+registerDsEventHandlers();
+// catch logs failure, then Initialize falls through to:
+return (string());</code></pre>
+<p><strong>Fix:</strong> Return a non-empty error from the failure path, and unwind resources already acquired before returning.</p>
+<pre><code class="language-cpp">catch (const device::Exception&amp; err) {
+    LOG_DEVICE_EXCEPTION0();
+    stopCecTimeAndUnsubscribeEvent();
+    return "device::Manager::Initialize failed";
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-4">Issue 4</h3>
+<p><strong>rule_31 - No Hardcoded Paths</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 80-81</p>
+<p><strong>What's wrong:</strong> The persistent directory and JSON file are fixed in the implementation. This prevents deployment-specific data-path selection.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:80-81
+#define ZOOM_SETTINGS_FILE "/opt/persistent/rdkservices/zoomSettings.json"
+#define ZOOM_SETTINGS_DIRECTORY "/opt/persistent/rdkservices"</code></pre>
+<p><strong>Fix:</strong> Obtain the persistent data directory from configuration or the Thunder data-path API, then append the file name.</p>
+<pre><code class="language-cpp">const string zoomSettingsFile = service-&gt;DataPath() + "zoomSettings.json";</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-5">Issue 5</h3>
+<p><strong>rule_37 - CXX_STANDARD Uses Thunder Variable</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>plugin/CMakeLists.txt</code> | <strong>Line:</strong> 31</p>
+<p><strong>What's wrong:</strong> The target hardcodes C++11 and bypasses the compiler-standard value selected by the Thunder build.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cmake"># plugin/CMakeLists.txt:31
+CXX_STANDARD 11</code></pre>
+<p><strong>Fix:</strong></p>
+<pre><code class="language-cmake">set_target_properties(${MODULE_NAME} PROPERTIES
+    CXX_STANDARD ${CXX_STD}
+    CXX_STANDARD_REQUIRED YES)</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-6">Issue 6</h3>
+<p><strong>rule_41 - Reverse-Order Cleanup</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 612-617, 644-684</p>
+<p><strong>What's wrong:</strong> Initialize acquires PowerManager, then initializes the device manager and registers device observers. Deinitialize unregisters PowerManager first, before stopping timers and removing the later device registrations. This is not reverse acquisition order and can leave callbacks active while dependencies are being torn down.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:612-617
+InitializePowerManager();
+device::Manager::Initialize();
+registerDsEventHandlers();
+
+// DisplaySettings.cpp:644-645
+_powerManagerPlugin-&gt;Unregister(...);
+_powerManagerPlugin.Reset();</code></pre>
+<p><strong>Fix:</strong> Stop producers and unregister device observers, deinitialize the device manager, then unregister/release PowerManager; continue unwinding timers, worker, and shell reference in reverse acquisition order.</p>
+<pre><code class="language-cpp">stopCecTimeAndUnsubscribeEvent();
+UnregisterDeviceObservers();
+device::Manager::DeInitialize();
+_powerManagerPlugin-&gt;Unregister(notification);
+_powerManagerPlugin.Reset();</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-7">Issue 7</h3>
+<p><strong>rule_42 - Observer Locking</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 5117, 5785-5789</p>
+<p><strong>What's wrong:</strong> Subscribe paths append event names to <code>m_clientRegisteredEventNames</code> without <code>m_callMutex</code>, while teardown iterates and clears that same vector under the mutex. Concurrent subscription and deinitialization can race or invalidate the iteration.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:5117
+m_clientRegisteredEventNames.push_back(eventName);
+
+// DisplaySettings.cpp:5785-5789 (under m_callMutex)
+for (std::string eventName : m_clientRegisteredEventNames) {
+    m_client-&gt;Unsubscribe(1000, _T(eventName));
+}
+m_clientRegisteredEventNames.clear();</code></pre>
+<p><strong>Fix:</strong> Use one synchronization policy for every list mutation and snapshot the names before performing remote unsubscribe calls.</p>
+<pre><code class="language-cpp">std::vector&lt;std::string&gt; names;
+{
+    std::lock_guard&lt;std::mutex&gt; lock(m_callMutex);
+    names.swap(m_clientRegisteredEventNames);
+}
+for (const auto&amp; name : names) {
+    m_client-&gt;Unsubscribe(1000, _T(name));
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-8">Issue 8</h3>
+<p><strong>rule_47 - Shared State Protected by CriticalSection</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 4709, 4738-4743, 6525-6528, 6644-6657</p>
+<p><strong>What's wrong:</strong> ARC/SAD fields are shared between timer and device/JSON-RPC callbacks but are not consistently guarded by one lock. For example, the SAD timer accesses state under <code>m_SadMutex</code>, while the HDMI hotplug callback updates related state under <code>m_AudioDeviceStatesUpdateMutex</code>; the audio hotplug callback also changes the UI-notified flag without a lock.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:4709, 4738-4743
+std::lock_guard&lt;std::mutex&gt; lock(m_SadMutex);
+if (!m_requestSadRetrigger) {
+    m_requestSadRetrigger = true;
+    sendMsgToQueue(REQUEST_SHORT_AUDIO_DESCRIPTOR, NULL);
+}
+
+// DisplaySettings.cpp:6525-6528
+DisplaySettings::_instance-&gt;m_arcEarcConnectionNotifiedToUI = ARC_EARC_CONNECTED;</code></pre>
+<p><strong>Fix:</strong> Define a single lock/atomic policy for each shared field and use it in every callback and timer path. Do not mix different mutexes for the same state.</p>
+<pre><code class="language-cpp">_adminLock.Lock();
+m_arcEarcConnectionNotifiedToUI = ARC_EARC_CONNECTED;
+_adminLock.Unlock();</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-9">Issue 9</h3>
+<p><strong>rule_61 - Plugin Threads Joined in Deinitialize</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 4876-4877, 659</p>
+<p><strong>What's wrong:</strong> The audio-port worker is detached. Deinitialize waits at most two seconds, logs on timeout, and proceeds without stopping or joining that thread.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:4876-4877
+std::thread audioPortInitThread(initAudioPortsWorker);
+audioPortInitThread.detach();
+
+// DisplaySettings.cpp:659
+m_audioPortInitCV.wait_for(lock, std::chrono::milliseconds(2000), ...);</code></pre>
+<p><strong>Fix:</strong> Keep the worker joinable, request cancellation, and join it before Deinitialize continues.</p>
+<pre><code class="language-cpp">m_audioPortInitStop.store(true);
+if (m_audioPortInitThread.joinable()) {
+    m_audioPortInitThread.join();
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-10">Issue 10</h3>
+<p><strong>rule_62 - Deinitialize Pointer Safety</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 659, 4851-4854, 698</p>
+<p><strong>What's wrong:</strong> On timeout, teardown continues and later clears <code>_instance</code>. The detached worker dereferences <code>_instance</code> to call <code>InitAudioPorts()</code> and again to signal completion, so it can access a null or destroyed plugin object after deinitialization.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:4851-4854
+DisplaySettings::_instance-&gt;InitAudioPorts();
+// ... accesses _instance again to notify completion
+
+// DisplaySettings.cpp:698
+DisplaySettings::_instance = nullptr;</code></pre>
+<p><strong>Fix:</strong> Do not let background work retain a raw singleton dependency. Cancel and join it before clearing the pointer; pass a lifetime-owned object/reference to any retained job.</p>
+<pre><code class="language-cpp">requestAudioInitStop();
+joinAudioInitWorker();
+DisplaySettings::_instance = nullptr;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-11">Issue 11</h3>
+<p><strong>rule_63 - hresult Return Values Checked</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 644, 737</p>
+<p><strong>What's wrong:</strong> Both COM notification-registration operations return an HRESULT, but their results are ignored. The plugin also updates its registration flag before confirming registration succeeded.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:644
+_powerManagerPlugin-&gt;Unregister(notification);
+
+// DisplaySettings.cpp:737
+_powerManagerPlugin-&gt;Register(notification);</code></pre>
+<p><strong>Fix:</strong> Check each result and update registration state only after success.</p>
+<pre><code class="language-cpp">const Core::hresult status = _powerManagerPlugin-&gt;Register(notification);
+if (status == Core::ERROR_NONE) {
+    _registeredEventHandlers = true;
+} else {
+    LOGERR("PowerManager notification registration failed: %d", status);
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-12">Issue 12</h3>
+<p><strong>rule_83 - No Heavy Work in Initialize()</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 627, 473, 4293</p>
+<p><strong>What's wrong:</strong> Initialize calls <code>InitAudioPorts()</code> synchronously. That setup calls the HdmiCecSink status helper, which performs a synchronous JSON-RPC <code>Invoke</code> with a 2-second timeout, so plugin activation waits on a remote service call.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:627
+InitAudioPorts();
+
+// DisplaySettings.cpp:473
+m_hdmiCecAudioDeviceDetected = getHdmiCecSinkAudioDeviceConnectedStatus();
+
+// DisplaySettings.cpp:4293
+m_client-&gt;Invoke&lt;JsonObject, JsonObject&gt;(2000, "getAudioDeviceConnectedStatus", param, result);</code></pre>
+<p><strong>Fix:</strong> Return from Initialize after lightweight setup, then dispatch audio-port discovery through a cancellable worker and report asynchronous failures through plugin state/events.</p>
+<pre><code class="language-cpp">Core::IWorkerPool::Instance().Submit(Core::ProxyType&lt;Core::IDispatch&gt;(Core::ProxyType&lt;Job&gt;::Create([]() { initAudioPortsWorker(); })));</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-13">Issue 13</h3>
+<p><strong>rule_06 - NULL vs nullptr</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 530, 5003</p>
+<p><strong>What's wrong:</strong> C++ null pointer values should use the type-safe <code>nullptr</code> literal. The text value <code>"NULL"</code> elsewhere is a string and is not included in this finding.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:530
+sendMsgToQueue(SEND_DEVICE_AUDIO_STATUS, NULL);
+
+// DisplaySettings.cpp:5003
+msgInfo.param = NULL;</code></pre>
+<p><strong>Fix:</strong></p>
+<pre><code class="language-cpp">sendMsgToQueue(SEND_DEVICE_AUDIO_STATUS, nullptr);
+msgInfo.param = nullptr;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-14">Issue 14</h3>
+<p><strong>rule_14 - Special Members Deleted (Main Class)</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>DisplaySettings.h</code> | <strong>Lines:</strong> 96-97</p>
+<p><strong>What's wrong:</strong> The plugin explicitly deletes its copy constructor and copy assignment, but does not explicitly delete its move constructor and move assignment. Explicit declarations make the non-transferable plugin-object contract clear.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.h:96-97
+DisplaySettings(const DisplaySettings&amp;) = delete;
+DisplaySettings&amp; operator=(const DisplaySettings&amp;) = delete;</code></pre>
+<p><strong>Fix:</strong></p>
+<pre><code class="language-cpp">DisplaySettings(DisplaySettings&amp;&amp;) = delete;
+DisplaySettings&amp; operator=(DisplaySettings&amp;&amp;) = delete;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-15">Issue 15</h3>
+<p><strong>rule_55 - Event Constants and Typed JSON Payloads</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Line:</strong> 2067</p>
+<p><strong>What's wrong:</strong> Event names are repeated as string literals and the event payload is assembled manually. This makes event-name changes error-prone and bypasses generated event serialization where available.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:2067
+sendNotify("audioFormatChanged", params);</code></pre>
+<p><strong>Fix:</strong> Prefer the generated event notification method. If this API must use the helper, centralize the event names as constants and keep payload construction aligned with the published schema.</p>
+<pre><code class="language-cpp">static constexpr const char* AUDIO_FORMAT_CHANGED_EVENT = "audioFormatChanged";
+sendNotify(AUDIO_FORMAT_CHANGED_EVENT, params);</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-16">Issue 16</h3>
+<p><strong>rule_64 - ASSERT Only for Programmer Invariants</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 720, 722</p>
+<p><strong>What's wrong:</strong> The PowerManager proxy is dynamically acquired and can be unavailable at runtime. Asserting it before the following null check can abort instead of taking the intended unavailable-service path.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:720-723
+_powerManagerPlugin = PowerManagerInterfaceBuilder(...).createInterface();
+ASSERT (_powerManagerPlugin);
+if (_powerManagerPlugin) { ... }</code></pre>
+<p><strong>Fix:</strong> Treat proxy acquisition failure as a runtime condition and return or log a controlled failure without asserting.</p>
+<pre><code class="language-cpp">if (!_powerManagerPlugin) {
+    LOGWARN("PowerManager is unavailable");
+    return;
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-17">Issue 17</h3>
+<p><strong>rule_74 - Prefer WorkerPool for Background Tasks</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 598, 4876-4877</p>
+<p><strong>What's wrong:</strong> The plugin starts a raw thread for the message loop and another raw thread for audio initialization, detaching the latter. WorkerPool jobs provide framework-managed scheduling and make cancellation/lifetime coordination easier.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:598
+m_sendMsgThread = std::thread(sendMsgThread);
+
+// DisplaySettings.cpp:4876-4877
+std::thread audioPortInitThread(initAudioPortsWorker);
+audioPortInitThread.detach();</code></pre>
+<p><strong>Fix:</strong> Use cancellable WorkerPool jobs for finite background work; retain a dedicated thread only if serialization requirements justify it, with explicit shutdown and join.</p>
+<pre><code class="language-cpp">Core::IWorkerPool::Instance().Submit(Core::ProxyType&lt;Core::IDispatch&gt;(Core::ProxyType&lt;Job&gt;::Create([]() { initAudioPortsWorker(); })));</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-18">Issue 18</h3>
+<p><strong>rule_79 - No Hardcoded Plugin Callsigns</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 59, 712, 4803</p>
+<p><strong>What's wrong:</strong> Callsigns for HdmiCecSink, PowerManager, and SecurityAgent are embedded in code, making deployment-specific service naming harder to support.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:59
+#define HDMICECSINK_CALLSIGN "org.rdk.HdmiCecSink"
+// DisplaySettings.cpp:712
+PowerManagerInterfaceBuilder(_T("org.rdk.PowerManager"))
+// DisplaySettings.cpp:4803
+QueryInterfaceByCallsign&lt;PluginHost::IAuthenticate&gt;("SecurityAgent");</code></pre>
+<p><strong>Fix:</strong> Read callsigns from plugin configuration or a platform service registry, and pass the resolved values to the interface builders.</p>
+<pre><code class="language-cpp">PowerManagerInterfaceBuilder(_T(_config.PowerManagerCallsign.Value()));</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-19">Issue 19</h3>
+<p><strong>rule_34 - Startmode Declaration</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>DisplaySettings.conf.in</code> | <strong>Line:</strong> 3</p>
+<p><strong>What's wrong:</strong> There is no explicit <code>startmode</code> entry. This is a suggestion rather than a violation because the plugin uses the pre-Thunder 5 <code>WPEFramework</code> namespace and declares <code>autostart</code>.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-ini"># DisplaySettings.conf.in:3
+ autostart = "@PLUGIN_DISPLAYSETTINGS_AUTOSTART@"</code></pre>
+<p><strong>Fix:</strong></p>
+<pre><code class="language-ini">startmode = Deactivated</code></pre>
+<p><strong>Note:</strong> The legacy configuration remains valid here: <code>WPEFramework</code> is declared at [DisplaySettings.cpp:165], and the config carries <code>autostart</code> at [DisplaySettings.conf.in:3].</p>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-20">Issue 20</h3>
+<p><strong>rule_36 - No Hardcoded Numeric Tuning Parameters</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 714-716, 4293</p>
+<p><strong>What's wrong:</strong> Retry delays/counts and remote-call timeouts are tuning decisions embedded in implementation code. Centralizing them makes platform tuning possible without code changes.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:714-716
+.withRetryIntervalMS(200)
+.withRetryCount(25)
+
+// DisplaySettings.cpp:4293
+m_client-&gt;Invoke&lt;JsonObject, JsonObject&gt;(2000, ...);</code></pre>
+<p><strong>Fix:</strong> Add named configuration values for retry interval/count and RPC timeout, then use those values at each call site.</p>
+<pre><code class="language-cpp">.withRetryIntervalMS(_config.RetryIntervalMs.Value())
+.withRetryCount(_config.RetryCount.Value());</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-21">Issue 21</h3>
+<p><strong>rule_48 - No Lock Held During Framework Callbacks</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 4905-4917, 6183</p>
+<p><strong>What's wrong:</strong> The ARC state mutex is held while <code>connectedAudioPortUpdated()</code> dispatches a Thunder JSON-RPC notification through <code>sendNotify()</code>. Re-entry during notification dispatch could contend on plugin state locks.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:4905-4917
+std::lock_guard&lt;std::mutex&gt; lock(m_AudioDeviceStatesUpdateMutex);
+...
+connectedAudioPortUpdated(dsAUDIOPORT_TYPE_HDMI_ARC, false);
+
+// DisplaySettings.cpp:6183
+sendNotify("connectedAudioPortUpdated", params);</code></pre>
+<p><strong>Fix:</strong> Capture and update state while locked, release the lock, then dispatch the framework notification.</p>
+<pre><code class="language-cpp">bool notifyDisconnected = false;
+{
+    std::lock_guard&lt;std::mutex&gt; lock(m_AudioDeviceStatesUpdateMutex);
+    notifyDisconnected = updateArcState();
+}
+if (notifyDisconnected) connectedAudioPortUpdated(dsAUDIOPORT_TYPE_HDMI_ARC, false);</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-22">Issue 22</h3>
+<p><strong>rule_60 - Lock Scope Minimized</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>DisplaySettings.cpp</code> | <strong>Lines:</strong> 4709-4743</p>
+<p><strong>What's wrong:</strong> <code>checkSADUpdate()</code> holds <code>m_SadMutex</code> while calling device SDK methods, reading/writing audio state, controlling timers, and dispatching queue work. These operations extend the critical section beyond the state transition itself.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// DisplaySettings.cpp:4709-4712
+std::lock_guard&lt;std::mutex&gt; lock(m_SadMutex);
+device::AudioOutputPort aPort = device::Host::getInstance().getAudioOutputPort("HDMI_ARC0");</code></pre>
+<p><strong>Fix:</strong> Read/update the SAD state under the mutex, then perform HAL calls and queue/timer operations after releasing it.</p>
+<pre><code class="language-cpp">bool shouldApplySad = false;
+{
+    std::lock_guard&lt;std::mutex&gt; lock(m_SadMutex);
+    shouldApplySad = updateSadState();
+}
+if (shouldApplySad) applySadToAudioPort();</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h2>Skipped Rules</h2>
+<table><thead><tr><th>Rule</th><th>Reason</th></tr></thead><tbody>
+<tr><td>rule_20 - Root&lt;T&gt;() nullptr Check</td><td>Initialize does not call service-&gt;Root&lt;T&gt;().</td></tr>
+<tr><td>rule_21 - Root&lt;T&gt;() Release in Deinitialize</td><td>No Root&lt;T&gt;() interface is acquired.</td></tr>
+<tr><td>rule_23 - SubSystems() Release in Deinitialize</td><td>Initialize does not acquire service-&gt;SubSystems().</td></tr>
+<tr><td>rule_25 - service-&gt;Register/Unregister Pairing</td><td>Initialize does not call service-&gt;Register(); PowerManager and device-host registration are separate interfaces.</td></tr>
+<tr><td>rule_29 - JSON-RPC Register/Unregister Pairing</td><td>JSON-RPC methods are registered in the constructor, not through Register() calls in Initialize(), which is the scope of this checkpoint.</td></tr>
+<tr><td>rule_32 - OOP Connection Termination in Deinitialize</td><td>The plugin is in-process; no Local mode or outofprocess configuration is present.</td></tr>
+<tr><td>rule_33 - connectionId Checked in IRemoteConnection Callbacks</td><td>The plugin is in-process and does not implement IRemoteConnection::INotification.</td></tr>
+<tr><td>rule_35 - Config Core::JSON::Container</td><td>No plugin Config class is present.</td></tr>
+<tr><td>rule_45 - Handlers Must Not Block</td><td>No IPlugin::INotification or IRemoteConnection::INotification handler implementation is present.</td></tr>
+<tr><td>rule_59 - IPlugin::INotification Callbacks Must Not Block</td><td>The plugin has no IPlugin::INotification callbacks.</td></tr>
+<tr><td>rule_66 - Config Completeness and Resource Cleanup</td><td>No plugin Config class/fields exist to validate.</td></tr>
+<tr><td>rule_85 - JSON-RPC Definitions Library Linked</td><td>No generated JSON-RPC headers from the rule's specified include paths are used.</td></tr>
+</tbody></table>
+</body>
+</html>

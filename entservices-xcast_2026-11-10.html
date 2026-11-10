@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thunder Plugin Review - entservices-xcast</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cmake.min.js"></script>
+<script>hljs.highlightAll();</script>
+<style>
+  body { font-family: sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #24292f; line-height: 1.6; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 10px; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 6px; margin-top: 40px; }
+  h3 { margin-top: 30px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f6f8fa; font-weight: 600; }
+  tr:nth-child(even) { background: #f6f8fa; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; }
+  code { font-family: monospace; font-size: 13px; }
+  p > code { background: #eef0f3; padding: 2px 5px; border-radius: 3px; }
+  .back-link { font-size: 13px; color: #0969da; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 30px 0; }
+</style>
+</head>
+<body>
+<h1>Thunder Plugin Review - entservices-xcast</h1>
+<p><strong>Date:</strong> 2026-11-10<br>
+<strong>Plugin:</strong> entservices-xcast (source directory/class: XCast)<br>
+<strong>Repo:</strong> https://rganga607@github.com/rdkcentral/entservices-xcast.git<br>
+<strong>Branch:</strong> develop | <strong>Commit:</strong> e5aab22<br>
+<strong>Total Rules:</strong> 85 | <strong>Passed:</strong> 53 | <strong>Failed:</strong> 26 | <strong>Skipped:</strong> 6 | <strong>Exempted:</strong> 0</p>
+<hr>
+<h2 id="issue-summary">Issue Summary</h2>
+<table>
+<thead><tr><th>Issue No.</th><th>Status</th><th>Rule</th><th>File</th><th>Line</th><th>Issue</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>❌ VIOLATION</td><td><a href="#issue-1">rule_08 - nullptr After Release</a></td><td>XCast.cpp</td><td>149</td><td>_xcast remains non-null through later teardown after Release().</td></tr>
+<tr><td>2</td><td>❌ VIOLATION</td><td><a href="#issue-2">rule_09 - QueryInterfaceByCallsign Lifetime</a></td><td>XCastImplementation.cpp</td><td>263</td><td>Raw plugin-interface results are retained in member fields.</td></tr>
+<tr><td>3</td><td>❌ VIOLATION</td><td><a href="#issue-3">rule_15 - Plugin Metadata Registration</a></td><td>XCast.cpp</td><td>29</td><td>XCast is registered by both Metadata and SERVICE_REGISTRATION.</td></tr>
+<tr><td>4</td><td>❌ VIOLATION</td><td><a href="#issue-4">rule_27 - Partial Initialization Cleanup</a></td><td>XCastImplementation.cpp</td><td>190</td><td>Cleanup asserts an optional PowerManager interface before guarding it.</td></tr>
+<tr><td>5</td><td>❌ VIOLATION</td><td><a href="#issue-5">rule_31 - No Hardcoded Paths</a></td><td>XCastManager.cpp</td><td>32</td><td>Platform filesystem locations are embedded as string literals.</td></tr>
+<tr><td>6</td><td>❌ VIOLATION</td><td><a href="#issue-6">rule_37 - CXX_STANDARD Uses Thunder Variable</a></td><td>CMakeLists.txt</td><td>51</td><td>Both targets hardcode CXX_STANDARD 11.</td></tr>
+<tr><td>7</td><td>❌ VIOLATION</td><td><a href="#issue-7">rule_41 - Reverse-Order Cleanup</a></td><td>XCastImplementation.cpp</td><td>190</td><td>Interface cleanup runs in acquisition order, not reverse order.</td></tr>
+<tr><td>8</td><td>❌ VIOLATION</td><td><a href="#issue-8">rule_47 - Shared State Locking</a></td><td>XCastImplementation.h</td><td>181</td><td>Notification callbacks and other paths access shared state without synchronization.</td></tr>
+<tr><td>9</td><td>❌ VIOLATION</td><td><a href="#issue-9">rule_53 - Handler Registration Order</a></td><td>XCast.cpp</td><td>169</td><td>service->Unregister() runs after resources have already been torn down.</td></tr>
+<tr><td>10</td><td>❌ VIOLATION</td><td><a href="#issue-10">rule_54 - Core::ERROR_* Return Values</a></td><td>XCastImplementation.cpp</td><td>969</td><td>Methods returning uint32_t/Core::hresult return raw 0.</td></tr>
+<tr><td>11</td><td>❌ VIOLATION</td><td><a href="#issue-11">rule_61 - Plugin Threads Joined</a></td><td>XCastImplementation.h</td><td>176</td><td>Detached threads are not stopped and joined during Deinitialize().</td></tr>
+<tr><td>12</td><td>❌ VIOLATION</td><td><a href="#issue-12">rule_62 - Deinitialize Pointer Safety</a></td><td>XCastImplementation.cpp</td><td>179</td><td>Teardown can proceed with background tasks active and leaves _service non-null.</td></tr>
+<tr><td>13</td><td>❌ VIOLATION</td><td><a href="#issue-13">rule_63 - hresult Return Values Checked</a></td><td>XCastImplementation.cpp</td><td>463</td><td>Several COM Register/Unregister results are discarded.</td></tr>
+<tr><td>14</td><td>❌ VIOLATION</td><td><a href="#issue-14">rule_69 - INTERFACE_MAP Mandatory</a></td><td>XCastImplementation.h</td><td>325</td><td>JSON-tagged IXCast interface map omits IDispatch.</td></tr><tr><td>15</td><td>⚠️ WARNING</td><td><a href="#issue-15">rule_06 - NULL vs nullptr</a></td><td>XCastManager.cpp</td><td>41</td><td>NULL is used as a pointer literal in executable code.</td></tr>
+<tr><td>16</td><td>⚠️ WARNING</td><td><a href="#issue-16">rule_14 - Special Members Deleted</a></td><td>XCast.h</td><td>69</td><td>Main plugin class does not explicitly delete its move operations.</td></tr>
+<tr><td>17</td><td>⚠️ WARNING</td><td><a href="#issue-17">rule_64 - ASSERT Only for Invariants</a></td><td>XCastImplementation.cpp</td><td>432</td><td>ASSERT assumes an optional PowerManager interface is available.</td></tr>
+<tr><td>18</td><td>⚠️ WARNING</td><td><a href="#issue-18">rule_73 - PluginSmartInterfaceType</a></td><td>XCastImplementation.cpp</td><td>263</td><td>Persistent raw COMRPC plugin proxies are stored as members.</td></tr>
+<tr><td>19</td><td>⚠️ WARNING</td><td><a href="#issue-19">rule_74 - Prefer WorkerPool</a></td><td>XCastImplementation.h</td><td>173</td><td>Raw std::thread instances are used for background work.</td></tr>
+<tr><td>20</td><td>⚠️ WARNING</td><td><a href="#issue-20">rule_79 - No Hardcoded Plugin Callsigns</a></td><td>XCastImplementation.cpp</td><td>263</td><td>Inter-plugin callsigns are embedded in source.</td></tr>
+<tr><td>21</td><td>⚠️ WARNING</td><td><a href="#issue-21">rule_82 - No sleep() in Plugin Code</a></td><td>XCastImplementation.cpp</td><td>180</td><td>Polling delays use usleep() and sleep().</td></tr>
+<tr><td>22</td><td>💡 SUGGESTION</td><td><a href="#issue-22">rule_34 - Startmode Declaration</a></td><td>XCast.conf.in</td><td>3</td><td>Legacy autostart is present, but explicit startmode is absent.</td></tr>
+<tr><td>23</td><td>💡 SUGGESTION</td><td><a href="#issue-23">rule_36 - Numeric Tuning Parameters</a></td><td>XCastImplementation.cpp</td><td>371</td><td>Retry interval/count are hardcoded tuning values.</td></tr>
+<tr><td>24</td><td>💡 SUGGESTION</td><td><a href="#issue-24">rule_39 - #pragma once</a></td><td>XCastCommon.h</td><td>24</td><td>Two headers use legacy include guards.</td></tr>
+<tr><td>25</td><td>💡 SUGGESTION</td><td><a href="#issue-25">rule_48 - No Lock Held During Framework Callbacks</a></td><td>XCastImplementation.cpp</td><td>1002</td><td>Notification dispatch calls listeners while _adminLock is held.</td></tr>
+<tr><td>26</td><td>💡 SUGGESTION</td><td><a href="#issue-26">rule_60 - Lock Scope Minimized</a></td><td>XCastImplementation.cpp</td><td>1002</td><td>_adminLock covers event conversion and listener callbacks.</td></tr>
+</tbody></table>
+
+<h2>Detailed Findings</h2>
+<h3 id="issue-1">Issue 1</h3>
+<p><strong>rule_08 - nullptr After Release</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCast.cpp</code> | <strong>Line:</strong> 149</p>
+<p><strong>What's wrong:</strong> The member pointer is used for Release(), but it is not cleared immediately. Later teardown work occurs before it is set to nullptr at line 163, leaving a dangling member if the release destroys the object.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCast.cpp:149
+VARIABLE_IS_NOT_USED uint32_t result = _xcast-&gt;Release();
+// XCast.cpp:163
+_xcast = nullptr;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">uint32_t result = _xcast-&gt;Release();
+_xcast = nullptr; // clear the member immediately after Release()</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-2">Issue 2</h3>
+<p><strong>rule_09 - QueryInterfaceByCallsign Lifetime</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 263</p>
+<p><strong>What's wrong:</strong> Results from QueryInterfaceByCallsign are saved in persistent member pointers, including SystemServices, NetworkManager, AppManager, and AppActions. These proxies can become stale when another plugin deactivates.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:263, 390, 498, 611
+_systemServicesPlugin = service-&gt;QueryInterfaceByCallsign&lt;Exchange::ISystemServices&gt;("org.rdk.System");
+_networkManagerPlugin = service-&gt;QueryInterfaceByCallsign&lt;Exchange::INetworkManager&gt;("org.rdk.NetworkManager");
+_appManagerPlugin = service-&gt;QueryInterfaceByCallsign&lt;Exchange::IAppManager&gt;("org.rdk.AppManager");
+_appActionsPlugin = service-&gt;QueryInterfaceByCallsign&lt;Exchange::IAppActions&gt;("org.rdk.AppActions");</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">PluginSmartInterfaceType&lt;Exchange::ISystemServices&gt; _systemServicesPlugin;
+// Use the matching PluginSmartInterfaceType for each persistent plugin proxy.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-3">Issue 3</h3>
+<p><strong>rule_15 - Plugin Metadata Registration</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCast.cpp</code> | <strong>Line:</strong> 29</p>
+<p><strong>What's wrong:</strong> The same XCast class has a static Plugin::Metadata registration and a SERVICE_REGISTRATION call in the same file. That registers one plugin class twice through different mechanisms.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCast.cpp:29 and 43
+static Plugin::Metadata&lt;Plugin::XCast&gt; metadata(...);
+SERVICE_REGISTRATION(XCast, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Keep Plugin::Metadata&lt;Plugin::XCast&gt; for the plugin class.
+// Remove SERVICE_REGISTRATION(XCast, ...) from this file.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-4">Issue 4</h3>
+<p><strong>rule_27 - Partial Initialization Cleanup</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 190</p>
+<p><strong>What's wrong:</strong> Deinitialize() unconditionally calls unregisterPowerEventHandlers(). PowerManager acquisition is allowed to fail, but that cleanup function asserts the interface before its null guard; a partial initialization can therefore hit an assertion during teardown.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:190, 430-433
+unregisterPowerEventHandlers();
+...
+void XCastImplementation::unregisterPowerEventHandlers()
+{
+    ASSERT (_powerManagerPlugin);
+    if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin) { ... }
+}</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">void XCastImplementation::unregisterPowerEventHandlers()
+{
+    if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin) {
+        // Unregister both handlers and clear the registration state.
+    }
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-5">Issue 5</h3>
+<p><strong>rule_31 - No Hardcoded Paths</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastManager.cpp</code> | <strong>Line:</strong> 32</p>
+<p><strong>What's wrong:</strong> System and temporary filesystem paths are compiled into the plugin instead of coming from configuration or a platform path abstraction. Other occurrences include <code>/tmp/gpid.txt</code>, <code>/opt/www/authService/deviceid.dat</code>, <code>/opt/www/whitebox/wbdevice.dat</code>, <code>/opt/wifi_interface</code>, and <code>/tmp/wifi-on</code>.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastManager.cpp:32, 282, 314-315, 360, 379
+#define COMMON_DEVICE_PROPERTIES_FILE "/etc/device.properties"
+std::ifstream file("/tmp/gpid.txt");</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Resolve these locations from platform configuration or an approved data-path API.
+const auto propertiesPath = configuredDevicePropertiesPath;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-6">Issue 6</h3>
+<p><strong>rule_37 - CXX_STANDARD Uses Thunder Variable</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>CMakeLists.txt</code> | <strong>Line:</strong> 51</p>
+<p><strong>What's wrong:</strong> Both the plugin and implementation targets set the language standard to the literal 11, bypassing Thunder's selected standard.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cmake"># CMakeLists.txt:51 and 72
+CXX_STANDARD 11</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cmake">set_target_properties(${MODULE_NAME} PROPERTIES CXX_STANDARD ${CXX_STD})
+set_target_properties(${PLUGIN_IMPLEMENTATION} PROPERTIES CXX_STANDARD ${CXX_STD})</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-7">Issue 7</h3>
+<p><strong>rule_41 - Reverse-Order Cleanup</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 190</p>
+<p><strong>What's wrong:</strong> Configure() acquires PowerManager, then the manager, SystemServices, AppManager, and AppActions. Deinitialize() unregisters PowerManager first and releases the interfaces in forward acquisition order, rather than unwinding them in reverse.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:341-345
+InitializePowerManager(service);
+Initialize(service...);
+InitializeSystemServices(service);
+InitializeAppManager(service);
+InitializeAppActions(service);
+// XCastImplementation.cpp:190-195, 207-224
+unregisterPowerEventHandlers();
+unregisterNetworkEventHandlers();
+unregisterSystemEventHandlers();
+// ... then releases PowerManager before later-acquired interfaces.</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Stop callbacks and release in reverse acquisition order:
+unregisterAppManagerEventHandlers();
+unregisterSystemEventHandlers();
+unregisterNetworkEventHandlers();
+unregisterPowerEventHandlers();
+// Then release AppActions, AppManager, SystemServices, NetworkManager, and PowerManager.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-8">Issue 8</h3>
+<p><strong>rule_47 - Shared State Protected by CriticalSection</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.h</code> | <strong>Line:</strong> 181</p>
+<p><strong>What's wrong:</strong> Notification callbacks write shared power/network state while timers, detached workers, and API methods read or update it without a common lock. For example, OnNetworkStandbyModeChanged writes <code>m_networkStandbyMode</code>, which is also read by worker and service paths.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.h:181
+_parent.m_networkStandbyMode = enabled;
+// XCastImplementation.cpp:711, 1226-1228
+SetNetworkStandbyMode(m_networkStandbyMode);
+bool currentNetworkStandbyMode = m_networkStandbyMode;
+m_xcastEnable = enabled;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Guard shared state reads and writes with one consistent lock,
+// or use atomics for independent scalar state where appropriate.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-9">Issue 9</h3>
+<p><strong>rule_53 - Handler Registration Order in Initialize/Deinitialize</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCast.cpp</code> | <strong>Line:</strong> 169</p>
+<p><strong>What's wrong:</strong> The plugin remains registered for IPlugin notifications while it unregisters JSON-RPC handlers, interfaces, and the remote implementation. A callback can therefore arrive during partially completed teardown.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCast.cpp:149-169
+_xcast-&gt;Release();
+// remote connection cleanup occurs here
+_service-&gt;Unregister(&amp;_xcastNotification);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">void XCast::Deinitialize(PluginHost::IShell* service)
+{
+    if (_service != nullptr) {
+        _service-&gt;Unregister(&amp;_xcastNotification); // first teardown operation
+    }
+    // Continue releasing resources after callbacks are stopped.
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-10">Issue 10</h3>
+<p><strong>rule_54 - Use Core::ERROR_* for Handler Failure Codes</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 969</p>
+<p><strong>What's wrong:</strong> A uint32_t method and a Core::hresult method return raw integer zero instead of the framework success constant.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:969, 1158
+return 0;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">return Core::ERROR_NONE;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-11">Issue 11</h3>
+<p><strong>rule_61 - Plugin Threads Joined in Deinitialize</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.h</code> | <strong>Line:</strong> 176</p>
+<p><strong>What's wrong:</strong> Power-mode, network-standby, and friendly-name work is started on detached std::threads. Deinitialize() does not join these threads; its bounded counter covers only the power-mode worker and can time out before cleanup proceeds.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.h:176, 184; XCastImplementation.cpp:317
+powerModeChangeThread.detach();
+networkStandbyModeChangeThread.detach();
+friendlyNameChangeThread.detach();</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Dispatch owned jobs through Core::WorkerPool and cancel/drain them
+// before releasing state in Deinitialize().</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-12">Issue 12</h3>
+<p><strong>rule_62 - Deinitialize Pointer Safety</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 179</p>
+<p><strong>What's wrong:</strong> Teardown waits at most five seconds for only one class of detached worker, then continues even if it is still active; other detached workers are not counted. Configure(nullptr) releases <code>_service</code> without clearing the member, leaving stale state for a repeated teardown/configuration call.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:179-183, 356
+while ((powerModeChangeActiveCount.load() &gt; 0) &amp;&amp; waitCount &lt; 50) { ... }
+_service-&gt;Release();</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Guarantee all workers have stopped before teardown completes.
+_service-&gt;Release();
+_service = nullptr;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-13">Issue 13</h3>
+<p><strong>rule_63 - hresult Return Values Checked</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 463</p>
+<p><strong>What's wrong:</strong> COM notification Unregister calls return Core::hresult, but their results are discarded. The same occurs for SystemServices, AppManager, and PowerManager cleanup calls; failures are not reported or otherwise handled.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:463, 489, 530
+_networkManagerPlugin-&gt;Unregister(&amp;_networkManagerNotification);
+_systemServicesPlugin-&gt;Unregister(&amp;_systemServicesNotification);
+_appManagerPlugin-&gt;Unregister(&amp;_appManagerNotification);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">const Core::hresult result = _networkManagerPlugin-&gt;Unregister(&amp;_networkManagerNotification);
+if (result != Core::ERROR_NONE) {
+    LOGERR("Failed to unregister network notification: %u", result);
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-14">Issue 14</h3><p><strong>rule_69 - INTERFACE_MAP Mandatory</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>XCastImplementation.h</code> | <strong>Line:</strong> 325</p><p><strong>What is wrong:</strong> IXCast is tagged as a JSON interface, but XCastImplementation's interface map does not expose IDispatch, so JSON-RPC dispatch cannot be queried through this implementation map.</p><p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.h:325-327
+BEGIN_INTERFACE_MAP(XCastImplementation)
+INTERFACE_ENTRY(Exchange::IXCast)
+INTERFACE_ENTRY(Exchange::IConfiguration)
+END_INTERFACE_MAP</code></pre><p><strong>Fix:</strong></p><pre><code class="language-cpp">BEGIN_INTERFACE_MAP(XCastImplementation)
+INTERFACE_ENTRY(Exchange::IXCast)
+INTERFACE_ENTRY(Exchange::IConfiguration)
+INTERFACE_ENTRY(PluginHost::IDispatch)</code></pre><p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p><h3 id="issue-15">Issue 15</h3>
+<p><strong>rule_06 - NULL vs nullptr</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>XCastManager.cpp</code> | <strong>Line:</strong> 41</p>
+<p><strong>What's wrong:</strong> The C macro NULL is used for pointer initialization and comparison in executable code, including the gdial pointer and a cached-app pointer.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastManager.cpp:41
+static gdialService* gdialCastObj = NULL;
+// XCastImplementation.cpp:1352
+pDynamicAppConfigOld = NULL;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">static gdialService* gdialCastObj = nullptr;
+pDynamicAppConfigOld = nullptr;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-16">Issue 16</h3>
+<p><strong>rule_14 - Special Members Deleted (Main Class)</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>XCast.h</code> | <strong>Line:</strong> 69</p>
+<p><strong>What's wrong:</strong> The main plugin class deletes its copy constructor and copy assignment, but does not explicitly delete its move constructor or move assignment.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCast.h:69-70
+XCast(const XCast &amp;) = delete;
+XCast &amp;operator=(const XCast &amp;) = delete;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">XCast(XCast&amp;&amp;) = delete;
+XCast&amp; operator=(XCast&amp;&amp;) = delete;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-17">Issue 17</h3>
+<p><strong>rule_64 - ASSERT Only for Programmer Invariants</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 432</p>
+<p><strong>What's wrong:</strong> PowerManager acquisition can legitimately fail (InitializePowerManager logs and continues when no interface is available), yet cleanup asserts that the interface exists before checking it.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:432
+ASSERT (_powerManagerPlugin);
+if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin) { ... }</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">if (_registeredPowerEventHandlers &amp;&amp; _powerManagerPlugin) {
+    // Unregister handlers only when acquisition succeeded.
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-18">Issue 18</h3>
+<p><strong>rule_73 - Use PluginSmartInterfaceType for Persistent COMRPC Proxies</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 263</p>
+<p><strong>What's wrong:</strong> The persistent SystemServices, NetworkManager, AppManager, and AppActions proxies are raw interface pointers. Holding a reference does not invalidate it when the remote plugin is deactivated.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.h:204-214 and XCastImplementation.cpp:263, 390, 498, 611
+Exchange::INetworkManager* _networkManagerPlugin;
+_systemServicesPlugin = service-&gt;QueryInterfaceByCallsign&lt;Exchange::ISystemServices&gt;(...);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">PluginSmartInterfaceType&lt;Exchange::INetworkManager&gt; _networkManagerPlugin;
+// Apply the same wrapper to persistent non-controller plugin interfaces.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-19">Issue 19</h3>
+<p><strong>rule_74 - Prefer WorkerPool for Background Tasks</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>XCastImplementation.h</code> | <strong>Line:</strong> 173</p>
+<p><strong>What's wrong:</strong> Several one-shot background tasks create raw std::threads rather than managed WorkerPool jobs.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.h:173-184
+std::thread powerModeChangeThread(...);
+powerModeChangeThread.detach();
+std::thread networkStandbyModeChangeThread(...);
+networkStandbyModeChangeThread.detach();</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">Core::IWorkerPool::Instance().Submit(Core::ProxyType&lt;Core::IDispatch&gt;(...));</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-20">Issue 20</h3>
+<p><strong>rule_79 - No Hardcoded Plugin Callsigns</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 263</p>
+<p><strong>What's wrong:</strong> Callsigns for System, NetworkManager, AppManager, AppActions, and DeviceInfo are embedded directly in code, making deployment-specific names harder to configure.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:263, 390, 498, 611; XCastManager.cpp:586
+"org.rdk.System"
+"org.rdk.NetworkManager"
+"org.rdk.AppManager"
+"org.rdk.AppActions"
+"DeviceInfo"</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Add callsigns to plugin configuration and read them during Configure().</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-21">Issue 21</h3>
+<p><strong>rule_82 - No sleep() in Plugin Code</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 180</p>
+<p><strong>What's wrong:</strong> Teardown polling uses usleep(), and power-state handling uses sleep(1). These block worker threads instead of using an event-driven completion mechanism.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:180, 687
+usleep(100000);
+sleep(1);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Use a completion signal, condition variable, or WorkerPool timer rather than sleeping.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-22">Issue 22</h3>
+<p><strong>rule_34 - Startmode Declaration</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>XCast.conf.in</code> | <strong>Line:</strong> 3</p>
+<p><strong>What's wrong:</strong> This plugin uses the pre-Thunder 5.0 WPEFramework namespace and declares autostart, but no explicit startmode. The legacy equivalent keeps this at suggestion severity.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-ini"># XCast.conf.in:3
+ autostart = "@PLUGIN_XCAST_AUTOSTART@"
+# no startmode declaration</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-ini">startmode = Activated</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-23">Issue 23</h3>
+<p><strong>rule_36 - No Hardcoded Numeric Tuning Parameters</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 371</p>
+<p><strong>What's wrong:</strong> PowerManager retries are configured with literal interval and count values. These operational tuning values are not expressed through plugin configuration.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:371-372
+.withRetryIntervalMS(200)
+.withRetryCount(25)</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">.withRetryIntervalMS(_config.RetryInterval.Value())
+.withRetryCount(_config.RetryCount.Value())</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-24">Issue 24</h3>
+<p><strong>rule_39 - #pragma once</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>XCastCommon.h</code> | <strong>Line:</strong> 23</p>
+<p><strong>What's wrong:</strong> XCastCommon.h and XCastNotifier.h use legacy include guards instead of #pragma once.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastCommon.h:23; XCastNotifier.h:19
+#ifndef __XCAST_COMMON_H__
+#ifndef XCAST_NOTIFIER_H</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">#pragma once</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-25">Issue 25</h3>
+<p><strong>rule_48 - No Lock Held During Framework Callbacks</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 1002</p>
+<p><strong>What's wrong:</strong> Dispatch holds _adminLock while invoking subscriber callbacks. Those callbacks forward events through the wrapper to JSON-RPC clients, creating a re-entrancy/deadlock risk.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:1002, 1016, 1059
+_adminLock.Lock();
+(*index)-&gt;OnApplicationLaunchRequestWithParam(...);
+_adminLock.Unlock();</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Snapshot/AddRef listeners under the lock, release the lock, then notify them.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h3 id="issue-26">Issue 26</h3>
+<p><strong>rule_60 - Lock Scope Minimized</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>File:</strong> <code>XCastImplementation.cpp</code> | <strong>Line:</strong> 1002</p>
+<p><strong>What's wrong:</strong> The same critical section spans event-specific JSON extraction and all notification callbacks; only iteration over a stable listener snapshot needs synchronization.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// XCastImplementation.cpp:1002-1059
+_adminLock.Lock();
+// event conversion and callbacks execute while locked
+_adminLock.Unlock();</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Keep the lock only while copying the listener list; process and notify outside it.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+
+<h2>Skipped Rules</h2>
+<table><thead><tr><th>Rule</th><th>Reason</th></tr></thead><tbody>
+<tr><td>rule_23 - SubSystems() Release</td><td>Initialize() does not acquire service-&gt;SubSystems().</td></tr>
+<tr><td>rule_35 - Config Core::JSON::Container</td><td>No plugin Config class is present.</td></tr>
+<tr><td>rule_51 - Config Errors Return Non-Empty</td><td>No plugin configuration parsing or Config class is present.</td></tr>
+<tr><td>rule_58 - JSON-RPC Handler Re-entrancy</td><td>No JSON-RPC request handlers are registered; the generated registration is for event forwarding.</td></tr>
+<tr><td>rule_59 - IPlugin::INotification Callbacks Must Not Block</td><td>The plugin does not implement IPlugin::INotification callbacks.</td></tr>
+<tr><td>rule_66 - Config Completeness</td><td>No plugin Config class is present.</td></tr>
+</tbody></table>
+</body>
+</html>
