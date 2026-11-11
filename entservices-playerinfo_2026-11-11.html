@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thunder Plugin Review - PlayerInfo</title>
+<style>
+  :root { color-scheme: light; font-family: "Segoe UI", sans-serif; color: #24292f; background: #fff; }
+  body { max-width: 1120px; margin: 36px auto; padding: 0 22px 48px; line-height: 1.55; }
+  h1 { font-size: 30px; border-bottom: 2px solid #d0d7de; padding-bottom: 10px; }
+  h2 { font-size: 22px; border-bottom: 1px solid #d0d7de; padding-bottom: 6px; margin-top: 38px; }
+  h3 { font-size: 17px; margin-top: 30px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 24px; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f6f8fa; }
+  tr:nth-child(even) { background: #f6f8fa; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 5px; padding: 14px; overflow-x: auto; }
+  code { font-family: Consolas, monospace; font-size: 13px; }
+  p code { background: #eef0f3; padding: 2px 4px; border-radius: 3px; }
+  .back { color: #0969da; font-size: 13px; }
+  .meta { line-height: 1.8; }
+  hr { border: 0; border-top: 1px solid #d0d7de; margin: 28px 0; }
+</style>
+</head>
+<body>
+<h1>Thunder Plugin Review - PlayerInfo</h1>
+<p class="meta"><strong>Date:</strong> 2026-11-11<br>
+<strong>Plugin:</strong> PlayerInfo<br>
+<strong>Repository:</strong> https://rganga607@github.com/rdkcentral/entservices-playerinfo.git<br>
+<strong>Branch:</strong> develop | <strong>Commit:</strong> 737d622<br>
+<strong>Total rules:</strong> 85 | <strong>Passed:</strong> 57 | <strong>Failed:</strong> 22 | <strong>Skipped:</strong> 6 | <strong>Exempted:</strong> 0</p>
+<p><strong>Review inventory:</strong> 8 C++ headers/sources, root and Dolby CMakeLists, plugin/cmake/FindWPEFrameworkHelpers.cmake, and PlayerInfo.conf.in. Both GStreamer and DeviceSettings platform implementations were reviewed. Rules loaded: 85 (rule_85 is the generated JSON-RPC Definitions link check).</p>
+<hr>
+<h2 id="issue-summary">Issue Summary</h2>
+<table>
+<thead><tr><th>No.</th><th>Status</th><th>Rule</th><th>Evidence</th><th>Summary</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>❌ VIOLATION</td><td><a href="#issue-1">rule_04 - VARIABLE_IS_NOT_USED Accuracy</a></td><td>[PlayerInfo.cpp:142,168]</td><td>Two values annotated unused are read in ASSERT expressions.</td></tr>
+<tr><td>2</td><td>❌ VIOLATION</td><td><a href="#issue-2">rule_27 - No Manual Deinitialize() in Initialize</a></td><td>[PlayerInfo.cpp:137,146,180]</td><td>Initialize calls Deinitialize directly on failure; framework teardown can call it again after the error return.</td></tr>
+<tr><td>3</td><td>❌ VIOLATION</td><td><a href="#issue-3">rule_29 - JSON-RPC Register/Unregister Pairing</a></td><td>[PlayerInfo.cpp:107,110]</td><td>L2-only audiocodecs/videocodecs handlers are registered without matching unregister calls.</td></tr>
+<tr><td>4</td><td>❌ VIOLATION</td><td><a href="#issue-4">rule_37 - CXX_STANDARD Uses Thunder Variable</a></td><td>[CMakeLists.txt:47]</td><td>The target pins CXX_STANDARD to 11 instead of using ${CXX_STD}.</td></tr>
+<tr><td>5</td><td>❌ VIOLATION</td><td><a href="#issue-5">rule_41 - Reverse-Order Cleanup</a></td><td>[PlayerInfo.cpp:150-168]</td><td>PlayerProperties and codec iterators are cleaned up before later-acquired Dolby registrations/interfaces.</td></tr>
+<tr><td>6</td><td>❌ VIOLATION</td><td><a href="#issue-6">rule_43 - AddRef/Release Balance</a></td><td>[PlayerInfo.cpp:137,180]</td><td>The manual failure teardown releases the shell reference before the framework's second Deinitialize call.</td></tr>
+<tr><td>7</td><td>❌ VIOLATION</td><td><a href="#issue-7">rule_47 - Shared State Protected by CriticalSection</a></td><td>[PlayerInfo.cpp:184,336-338]</td><td>Notification callback reads _connectionId/_service while lifecycle teardown writes and releases them without synchronization.</td></tr>
+<tr><td>8</td><td>❌ VIOLATION</td><td><a href="#issue-8">rule_56 - COM Reference Counting Correctness</a></td><td>[PlayerInfo.cpp:137,180]</td><td>The initialization failure path permits repeated cleanup of the stored IShell reference.</td></tr>
+<tr><td>9</td><td>❌ VIOLATION</td><td><a href="#issue-9">rule_58 - JSON-RPC Handlers Are Re-entrant Safe</a></td><td>[PlayerInfo.cpp:229-242]</td><td>Concurrent HTTP and JSON-RPC requests reset and advance the same codec iterator members.</td></tr>
+<tr><td>10</td><td>❌ VIOLATION</td><td><a href="#issue-10">rule_62 - Deinitialize Pointer Safety</a></td><td>[PlayerInfo.cpp:146,180,336-338]</td><td>No synchronization guarantees an in-flight Deactivated callback stops using _service before Deinitialize releases it.</td></tr>
+<tr><td>11</td><td>❌ VIOLATION</td><td><a href="#issue-11">rule_63 - hresult Return Values Checked</a></td><td>[PlayerInfo.cpp:77,80; DeviceSettings/PlatformImplementation.cpp:196,611]</td><td>Configure and notification registration results are ignored; DSHelper::Open failure is logged but Configure still returns success.</td></tr>
+<tr><td>12</td><td>❌ VIOLATION</td><td><a href="#issue-12">rule_68 - No Deprecated JSON-RPC APIs</a></td><td>[PlayerInfo.cpp:107,110]</td><td>Custom handlers use the legacy untyped Register overload rather than typed registration.</td></tr>
+<tr><td>13</td><td>⚠️ WARNING</td><td><a href="#issue-13">rule_14 - Special Members Deleted (Main Class)</a></td><td>[PlayerInfo.h:105-106]</td><td>PlayerInfo deletes copy operations but not its move constructor and move assignment.</td></tr>
+<tr><td>14</td><td>⚠️ WARNING</td><td><a href="#issue-14">rule_57 - No Hard Inter-Plugin Dependencies</a></td><td>[DeviceSettings/PlatformImplementation.cpp:426]</td><td>AtmosMetadata calls a fixed DisplaySettings JSON-RPC callsign directly.</td></tr>
+<tr><td>15</td><td>⚠️ WARNING</td><td><a href="#issue-15">rule_64 - ASSERT Only for Programmer Invariants</a></td><td>[PlayerInfo.cpp:337]</td><td>The callback asserts _service is non-null even though an in-flight callback can overlap teardown.</td></tr>
+<tr><td>16</td><td>⚠️ WARNING</td><td><a href="#issue-16">rule_70 - No printf — Use Thunder Tracing</a></td><td>[PlayerInfo.cpp:106-112,251,272,299,315]</td><td>Several L2 registration and handler paths write diagnostics with std::cout.</td></tr>
+<tr><td>17</td><td>⚠️ WARNING</td><td><a href="#issue-17">rule_75 - No COMRPC Call Inside COMRPC Notification</a></td><td>[DeviceSettings/PlatformImplementation.cpp:131,632-643]</td><td>The DeviceSettings notification callback synchronously fans out Dolby notification callbacks.</td></tr>
+<tr><td>18</td><td>⚠️ WARNING</td><td><a href="#issue-18">rule_79 - No Hardcoded Plugin Callsigns</a></td><td>[DeviceSettings/PlatformImplementation.cpp:426]</td><td>DisplaySettings callsign is embedded in the implementation.</td></tr>
+<tr><td>19</td><td>💡 SUGGESTION</td><td><a href="#issue-19">rule_34 - Startmode Declaration</a></td><td>[PlayerInfo.conf.in:1]</td><td>Legacy autostart is used without an explicit startmode.</td></tr>
+<tr><td>20</td><td>💡 SUGGESTION</td><td><a href="#issue-20">rule_36 - No Hardcoded Numeric Tuning Parameters</a></td><td>[PlayerInfo.cpp:69; DeviceSettings/PlatformImplementation.cpp:430]</td><td>Two-second interface/JSON-RPC timeouts are hardcoded.</td></tr>
+<tr><td>21</td><td>💡 SUGGESTION</td><td><a href="#issue-21">rule_48 - No Lock Held During Framework Callbacks</a></td><td>[DeviceSettings/PlatformImplementation.cpp:641-643]</td><td>Observer lock remains held while dispatching callbacks to the PlayerInfo plugin.</td></tr>
+<tr><td>22</td><td>💡 SUGGESTION</td><td><a href="#issue-22">rule_60 - Lock Scope Minimized</a></td><td>[DeviceSettings/PlatformImplementation.cpp:641-644]</td><td>Observer callbacks execute inside the critical section instead of only protecting the observer list.</td></tr>
+</tbody></table>
+
+<h2>Detailed Findings</h2>
+<h3 id="issue-1">Issue 1</h3><p><strong>rule_04 - VARIABLE_IS_NOT_USED Accuracy</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:142,168]</code></p>
+<p><strong>What's wrong:</strong> The Deinitialize parameter <code>service</code> is annotated unused but referenced by <code>ASSERT(service == _service)</code>. The local <code>result</code> from <code>_player-&gt;Release()</code> is also annotated unused and then checked by <code>ASSERT(result == Core::ERROR_DESTRUCTION_SUCCEEDED)</code>.</p><pre><code>// [PlayerInfo.cpp:142-144,168-169]
+void PlayerInfo::Deinitialize(PluginHost::IShell* service VARIABLE_IS_NOT_USED)
+{
+    ASSERT(service == _service);
+    VARIABLE_IS_NOT_USED uint32_t result = _player-&gt;Release();
+    ASSERT(result == Core::ERROR_DESTRUCTION_SUCCEEDED);
+}</code></pre><p><strong>Fix:</strong></p><pre><code>void PlayerInfo::Deinitialize(PluginHost::IShell* service)
+{
+    ASSERT(service == _service);
+    const uint32_t result = _player-&gt;Release();
+    ASSERT(result == Core::ERROR_DESTRUCTION_SUCCEEDED);
+}</code></pre><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-2">Issue 2</h3><p><strong>rule_27 - No Manual Deinitialize() in Initialize</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:137,146,180]</code></p>
+<p><strong>What's wrong:</strong> On an initialization failure, <code>Initialize()</code> calls <code>Deinitialize(service)</code> and then returns a non-empty error. Thunder calls <code>Deinitialize()</code> for a failed initialization as well. The second call reaches <code>_service-&gt;Unregister()</code> and later releases a shell pointer that the first call already nulled, so the failure path can crash.</p><pre><code>// [PlayerInfo.cpp:136-138,146,180]
+if (message.length() != 0) {
+    Deinitialize(service);
+}
+return message;
+
+_service-&gt;Unregister(&amp;_notification);
+_service-&gt;Release();
+_service = nullptr;</code></pre><p><strong>Fix:</strong></p><pre><code>// Initialize: return the error and let Thunder perform teardown.
+if (!message.empty()) return message;
+
+// Deinitialize: guard every partially acquired resource before cleanup.</code></pre><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-3">Issue 3</h3><p><strong>rule_29 - JSON-RPC Register/Unregister Pairing</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:107,110]</code></p>
+<p><strong>What's wrong:</strong> The L2 build manually registers <code>audiocodecs</code> and <code>videocodecs</code>, but Deinitialize only unregisters the generated PlayerProperties and Dolby interfaces. The custom handlers remain registered until object destruction.</p><pre><code>// [PlayerInfo.cpp:107,110]
+Register("audiocodecs", &amp;PlayerInfo::get_audiocodecs, this);
+Register("videocodecs", &amp;PlayerInfo::get_videocodecs, this);</code></pre><p><strong>Fix:</strong></p><pre><code>Unregister("videocodecs");
+Unregister("audiocodecs");
+Exchange::JPlayerProperties::Unregister(*this);</code></pre><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-4">Issue 4</h3><p><strong>rule_37 - CXX_STANDARD Uses Thunder Variable</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[CMakeLists.txt:47]</code></p>
+<p><strong>What's wrong:</strong> The PlayerInfo target hardcodes C++11 and bypasses the Thunder build's configured standard.</p><pre><code># [CMakeLists.txt:47]
+CXX_STANDARD 11</code></pre><p><strong>Fix:</strong></p><pre><code>set_target_properties(${MODULE_NAME} PROPERTIES
+    CXX_STANDARD ${CXX_STD}
+    CXX_STANDARD_REQUIRED YES)</code></pre><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-5">Issue 5</h3><p><strong>rule_41 - Reverse-Order Cleanup</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:150-168]</code></p>
+<p><strong>What's wrong:</strong> Initialization registers PlayerProperties before Dolby, but teardown unregisters PlayerProperties first. It also releases the audio iterator before the later-acquired video iterator. After the required first service Unregister, the remaining resources should be unwound in reverse acquisition order.</p><pre><code>// [PlayerInfo.cpp:150-168]
+Exchange::JPlayerProperties::Unregister(*this);
+_audioCodecs-&gt;Release();
+_videoCodecs-&gt;Release();
+Exchange::Dolby::JOutput::Unregister(*this);
+_dolbyNotification.Deinitialize();
+_dolbyOut-&gt;Release();</code></pre><p><strong>Fix:</strong></p><pre><code>// Unregister Dolby first, then PlayerProperties; release video before audio.
+Exchange::Dolby::JOutput::Unregister(*this);
+_dolbyNotification.Deinitialize();
+Exchange::JPlayerProperties::Unregister(*this);
+_videoCodecs-&gt;Release();
+_audioCodecs-&gt;Release();</code></pre><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-6">Issue 6</h3><p><strong>rule_43 - AddRef/Release Balance</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:137,180]</code></p>
+<p><strong>What's wrong:</strong> The explicit cleanup on Initialize failure releases the stored IShell reference, but the non-empty error return causes framework cleanup to run again. The second release is not balanced by an AddRef and occurs through a pointer already set to null.</p><p><strong>Fix:</strong> Remove the direct call to Deinitialize from Initialize and make Deinitialize safely handle partial acquisition once.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-7">Issue 7</h3><p><strong>rule_47 - Shared State Protected by CriticalSection</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:184,336-338]</code></p>
+<p><strong>What's wrong:</strong> <code>Deactivated()</code> runs on the remote-connection callback thread and reads <code>_connectionId</code> and <code>_service</code>, while Deinitialize clears those members and releases the service on the lifecycle thread. No lock or atomic/lifetime protocol protects those accesses.</p><pre><code>// [PlayerInfo.cpp:184,336-338]
+_connectionId = 0;
+if (_connectionId == connection-&gt;Id()) {
+    ASSERT(_service != nullptr);
+    Core::IWorkerPool::Instance().Submit(
+        PluginHost::IShell::Job::Create(_service, ...));
+}</code></pre><p><strong>Fix:</strong> Coordinate callback state and shell lifetime with a lock or equivalent synchronization, and make teardown wait for or invalidate callbacks before releasing the pointer.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-8">Issue 8</h3><p><strong>rule_56 - COM Reference Counting Correctness</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:137,180]</code></p>
+<p><strong>What's wrong:</strong> The same failure path breaks COM reference-counting correctness: <code>_service</code> receives one AddRef in Initialize, but direct Deinitialize plus framework-driven Deinitialize can attempt two releases.</p><p><strong>Fix:</strong> Let Thunder own failure teardown and guard each cleanup action so every acquired reference is released exactly once.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-9">Issue 9</h3><p><strong>rule_58 - JSON-RPC Handlers Are Re-entrant Safe</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:229-242]</code></p>
+<p><strong>What's wrong:</strong> <code>Process()</code> and JSON-RPC handlers can call <code>Info()</code> concurrently. Each call resets and advances the same member codec iterators, so one request can disturb another request's iteration.</p><pre><code>// [PlayerInfo.cpp:231-242]
+_audioCodecs-&gt;Reset(0);
+while (_audioCodecs-&gt;Next(audio)) { ... }
+_videoCodecs-&gt;Reset(0);
+while (_videoCodecs-&gt;Next(video)) { ... }</code></pre><p><strong>Fix:</strong> Obtain per-request iterators or serialize the complete iterator reset/read sequence with a lock shared by every caller.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-10">Issue 10</h3><p><strong>rule_62 - Deinitialize Pointer Safety</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:146,180,336-338]</code></p>
+<p><strong>What's wrong:</strong> Unregistering the notification stops future notifications but the code has no explicit guarantee that a callback already in progress has finished before <code>_service</code> is released and nulled. That callback can still submit a job using the member pointer.</p><p><strong>Fix:</strong> Add a callback/lifecycle synchronization protocol and ensure in-flight callbacks finish or are safely invalidated before releasing framework pointers.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-11">Issue 11</h3><p><strong>rule_63 - hresult Return Values Checked</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:77,80; DeviceSettings/PlatformImplementation.cpp:196,611]</code></p>
+<p><strong>What's wrong:</strong> PlayerInfo ignores the result of <code>IConfiguration::Configure()</code>; Dolby notification initialization ignores the COM Register result. DeviceSettings logs a failed <code>DSHelper::Open()</code> but unconditionally returns <code>Core::ERROR_NONE</code>, and its DeviceSettings notification registration result is discarded. Other output-bearing DS calls also discard HRESULTs, including GetAudioLEConfig and GetAudioSinkDeviceAtmosCapability.</p><pre><code>// [DeviceSettings/PlatformImplementation.cpp:196-201]
+const uint32_t result = DSHelper::Open(service, "PlayerInfo");
+if (result != Core::ERROR_NONE) LOGERR(...);
+return Core::ERROR_NONE;</code></pre><p><strong>Fix:</strong> Preserve and propagate or deliberately map each failure; check registration and output-query results before reporting success.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-12">Issue 12</h3><p><strong>rule_68 - No Deprecated JSON-RPC APIs</strong><br><strong>Status:</strong> ❌ VIOLATION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:107,110]</code></p>
+<p><strong>What's wrong:</strong> The custom JSON-RPC methods use the legacy untyped <code>Register(name, handler, this)</code> overload. The L2-only build is the only path using it.</p><pre><code>Register("audiocodecs", &amp;PlayerInfo::get_audiocodecs, this);
+Register("videocodecs", &amp;PlayerInfo::get_videocodecs, this);</code></pre><p><strong>Fix:</strong> Use the supported typed registration overload for JsonObject parameters and responses, and pair each registration with its matching Unregister.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-13">Issue 13</h3><p><strong>rule_14 - Special Members Deleted (Main Class)</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>Evidence:</strong> <code>[PlayerInfo.h:105-106]</code></p>
+<p><strong>What's wrong:</strong> The main plugin class deletes its copy constructor and copy assignment, but does not explicitly delete move construction or move assignment.</p><pre><code>PlayerInfo(const PlayerInfo&amp;) = delete;
+PlayerInfo&amp; operator=(const PlayerInfo&amp;) = delete;</code></pre><p><strong>Fix:</strong></p><pre><code>PlayerInfo(PlayerInfo&amp;&amp;) = delete;
+PlayerInfo&amp; operator=(PlayerInfo&amp;&amp;) = delete;</code></pre><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-14">Issue 14</h3><p><strong>rule_57 - No Hard Inter-Plugin Dependencies</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>Evidence:</strong> <code>[DeviceSettings/PlatformImplementation.cpp:426]</code></p>
+<p><strong>What's wrong:</strong> The TV AtmosMetadata path directly creates a JSON-RPC link to DisplaySettings. This makes the capability query depend on that specific plugin and its callsign.</p><pre><code>JSONRPC::LinkType&lt;Core::JSON::IElement&gt; dsClient(
+    _T("org.rdk.DisplaySettings.1"), _T("org.rdk.DisplaySettings.1"), false, _T(""));</code></pre><p><strong>Fix:</strong> Resolve the optional service through configured/dynamic plugin acquisition and handle its absence as a normal capability state.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-15">Issue 15</h3><p><strong>rule_64 - ASSERT Only for Programmer Invariants</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:337]</code></p>
+<p><strong>What's wrong:</strong> An in-flight Deactivated notification can overlap Deinitialize, making <code>_service == nullptr</code> a possible lifecycle state rather than an impossible programmer error. The callback asserts non-null and then dereferences it.</p><p><strong>Fix:</strong> Synchronize callback teardown and use a runtime null/liveness check instead of relying on ASSERT for this race-sensitive state.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-16">Issue 16</h3><p><strong>rule_70 - No printf — Use Thunder Tracing</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:106-112,251,272,299,315]</code></p>
+<p><strong>What's wrong:</strong> Direct stdout output appears in L2 registration, codec-not-available, and empty-enum diagnostic paths.</p><pre><code>std::cout &lt;&lt; "Registering manual audiocodecs method for L2 test" &lt;&lt; std::endl;
+std::cout &lt;&lt; "get_audiocodecs - codecs not available" &lt;&lt; std::endl;</code></pre><p><strong>Fix:</strong> Replace diagnostics with Thunder tracing macros, including in test-only compilation branches.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-17">Issue 17</h3><p><strong>rule_75 - No COMRPC Call Inside COMRPC Notification</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>Evidence:</strong> <code>[DeviceSettings/PlatformImplementation.cpp:131,632-643]</code></p>
+<p><strong>What's wrong:</strong> A DeviceSettings audio notification immediately enters <code>OnDSAudioModeEvent()</code> and synchronously dispatches <code>AudioModeChanged()</code> to registered observers. In the COM-RPC implementation path, that can issue an outbound notification call while handling an inbound COM-RPC notification.</p><p><strong>Fix:</strong> Queue the observer fan-out on the WorkerPool after the inbound callback returns, retaining observer lifetimes safely for the queued work.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-18">Issue 18</h3><p><strong>rule_79 - No Hardcoded Plugin Callsigns</strong><br><strong>Status:</strong> ⚠️ WARNING | <strong>Evidence:</strong> <code>[DeviceSettings/PlatformImplementation.cpp:426]</code></p>
+<p><strong>What's wrong:</strong> The DisplaySettings callsign is embedded in the source rather than supplied through plugin configuration.</p><p><strong>Fix:</strong> Add the optional DisplaySettings callsign to configuration and use it when constructing the JSON-RPC link.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-19">Issue 19</h3><p><strong>rule_34 - Startmode Declaration</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>Evidence:</strong> <code>[PlayerInfo.conf.in:1]</code></p>
+<p><strong>What's wrong:</strong> The config uses <code>autostart</code> and does not declare <code>startmode</code>. This is a pre-Thunder 5 WPEFramework plugin, so legacy autostart is accepted and this remains a suggestion.</p><pre><code>autostart = "@PLUGIN_PLAYERINFO_AUTOSTART@"</code></pre><p><strong>Fix:</strong> Migrate to an explicit <code>startmode</code> declaration when adopting the current plugin configuration convention.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-20">Issue 20</h3><p><strong>rule_36 - No Hardcoded Numeric Tuning Parameters</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>Evidence:</strong> <code>[PlayerInfo.cpp:69; DeviceSettings/PlatformImplementation.cpp:430]</code></p>
+<p><strong>What's wrong:</strong> Both the Root acquisition and DisplaySettings JSON-RPC request embed a 2000 ms timeout.</p><pre><code>service-&gt;Root&lt;Exchange::IPlayerProperties&gt;(_connectionId, 2000, ...);
+dsClient.Invoke&lt;JsonObject, JsonObject&gt;(2000, ...);</code></pre><p><strong>Fix:</strong> Centralize timeouts as named constants or configuration values so deployments can tune them consistently.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-21">Issue 21</h3><p><strong>rule_48 - No Lock Held During Framework Callbacks</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>Evidence:</strong> <code>[DeviceSettings/PlatformImplementation.cpp:641-643]</code></p>
+<p><strong>What's wrong:</strong> <code>_adminLock</code> remains held while <code>obs-&gt;AudioModeChanged()</code> dispatches the event into the PlayerInfo plugin/framework.</p><p><strong>Fix:</strong> Snapshot/AddRef observers under the lock, release it, then invoke callbacks.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h3 id="issue-22">Issue 22</h3><p><strong>rule_60 - Lock Scope Minimized</strong><br><strong>Status:</strong> 💡 SUGGESTION | <strong>Evidence:</strong> <code>[DeviceSettings/PlatformImplementation.cpp:641-644]</code></p>
+<p><strong>What's wrong:</strong> The critical section covers each external observer callback, not only observer-list access. This increases contention and also creates the re-entrancy concern described in rule_48.</p><p><strong>Fix:</strong> Copy observer references while locked and perform notification dispatch after unlocking.</p><p><a class="back" href="#issue-summary">Back to Issue Summary</a></p>
+
+<h2>Skipped Rules</h2>
+<table><thead><tr><th>Rule</th><th>Reason</th></tr></thead><tbody>
+<tr><td>rule_09 - No QueryInterfaceByCallsign as Member</td><td>No QueryInterfaceByCallsign calls are present.</td></tr>
+<tr><td>rule_23 - SubSystems() Release in Deinitialize</td><td>Initialize does not acquire service-&gt;SubSystems().</td></tr>
+<tr><td>rule_32 - OOP Connection Termination in Deinitialize</td><td>PLUGIN_PLAYERINFO_MODE defaults to Off and PlayerInfo.conf.in does not set outofprocess = true.</td></tr>
+<tr><td>rule_33 - connectionId Checked in IRemoteConnection Callbacks</td><td>The plugin does not meet the prompt's OOP applicability condition.</td></tr>
+<tr><td>rule_35 - Config Core::JSON::Container</td><td>No plugin-defined Core::JSON::Container configuration class is present.</td></tr>
+<tr><td>rule_66 - Config Completeness and Resource Cleanup</td><td>No plugin-defined Config container or config-driven resource fields apply.</td></tr>
+</tbody></table>
+<p><strong>Validation:</strong> Semantic source review only; automated tests/builds were not run.</p>
+</body>
+</html>
