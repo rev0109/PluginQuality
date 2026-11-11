@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thunder Plugin Review - entservices-avoutput</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cmake.min.js"></script>
+<script>hljs.highlightAll();</script>
+<style>
+  body { font-family: sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #24292f; line-height: 1.6; }
+  h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 10px; }
+  h2 { border-bottom: 1px solid #d0d7de; padding-bottom: 6px; margin-top: 40px; }
+  h3 { margin-top: 30px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; }
+  th { background: #f6f8fa; font-weight: 600; }
+  tr:nth-child(even) { background: #f6f8fa; }
+  pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; }
+  code { font-family: monospace; font-size: 13px; }
+  p > code { background: #eef0f3; padding: 2px 5px; border-radius: 3px; }
+  .back-link { font-size: 13px; color: #0969da; }
+  hr { border: none; border-top: 1px solid #d0d7de; margin: 30px 0; }
+</style>
+</head>
+<body>
+<h1>Thunder Plugin Review - entservices-avoutput</h1>
+<p><strong>Date:</strong> 2026-11-10<br>
+<strong>Plugin:</strong> entservices-avoutput<br>
+<strong>Repo:</strong> https://github.com/rdkcentral/entservices-avoutput.git<br>
+<strong>Branch:</strong> develop | <strong>Commit:</strong> 32cfc6d<br>
+<strong>Total Rules:</strong> 85 | <strong>Passed:</strong> 35 | <strong>Failed:</strong> 30 | <strong>Skipped:</strong> 20 | <strong>Exempted:</strong> 0</p>
+<hr>
+<h2 id="issue-summary">Issue Summary</h2>
+<table><thead><tr><th>Issue No.</th><th>Status</th><th>Rule</th><th>File</th><th>Line</th><th>Issue</th></tr></thead><tbody>
+<tr><td>1</td><td>❌ VIOLATION</td><td><a href="#issue-1">rule_15 - Plugin Metadata Registration</a></td><td>AVOutput.cpp</td><td>32</td><td>Plugin::Metadata&lt;AVOutput&gt; and SERVICE_REGISTRATION(AVOutput) register the same class in one file</td></tr>
+<tr><td>2</td><td>❌ VIOLATION</td><td><a href="#issue-2">rule_22 - Observer Cleanup in Deinitialize</a></td><td>AVOutputTV.cpp</td><td>500</td><td>HAL change callbacks registered in Initialize() are never unregistered in Deinitialize()</td></tr>
+<tr><td>3</td><td>❌ VIOLATION</td><td><a href="#issue-3">rule_24 - Constructor Must Be Empty</a></td><td>AVOutputTV.cpp</td><td>291</td><td>Constructor connects to IARM, registers all JSON-RPC methods and starts a thread</td></tr>
+<tr><td>4</td><td>❌ VIOLATION</td><td><a href="#issue-4">rule_26 - Initialize Returns Error String on Failure</a></td><td>AVOutputTV.cpp</td><td>490</td><td>TvInit() failure is only logged, so Initialize() still returns an empty (success) string</td></tr>
+<tr><td>5</td><td>❌ VIOLATION</td><td><a href="#issue-5">rule_28 - No Plugin Lifecycle Dependencies in Destructor</a></td><td>AVOutputTV.cpp</td><td>465</td><td>Destructor joins the worker thread and unregisters IARM event handlers</td></tr>
+<tr><td>6</td><td>❌ VIOLATION</td><td><a href="#issue-6">rule_29 - JSON-RPC Register/Unregister Pairing</a></td><td>AVOutputTV.cpp</td><td>293</td><td>JSON-RPC methods are registered but never unregistered</td></tr>
+<tr><td>7</td><td>❌ VIOLATION</td><td><a href="#issue-7">rule_31 - No Hardcoded Paths</a></td><td>AVOutputTV.h</td><td>91</td><td>Hardcoded filesystem paths (/etc/, /opt/panel/, /etc/device.properties)</td></tr>
+<tr><td>8</td><td>❌ VIOLATION</td><td><a href="#issue-8">rule_37 - CXX_STANDARD Uses Thunder Variable</a></td><td>CMakeLists.txt</td><td>80</td><td>CXX_STANDARD hardcoded to 11 instead of ${CXX_STD}</td></tr>
+<tr><td>9</td><td>❌ VIOLATION</td><td><a href="#issue-9">rule_41 - Reverse-Order Cleanup</a></td><td>AVOutputTV.cpp</td><td>547</td><td>Deinitialize() does not undo what Initialize() acquired (callbacks, JSON-RPC, IARM, thread)</td></tr>
+<tr><td>10</td><td>❌ VIOLATION</td><td><a href="#issue-10">rule_47 - Shared State Protected by CriticalSection</a></td><td>AVOutputTV.cpp</td><td>233</td><td>Members written by IARM/HAL callback threads are read by JSON-RPC handlers with no lock</td></tr>
+<tr><td>11</td><td>❌ VIOLATION</td><td><a href="#issue-11">rule_52 - interface-&gt;Register/Unregister Pairing</a></td><td>AVOutputTV.cpp</td><td>6657</td><td>IARM handlers registered in InitializeIARM() are removed only from the destructor, not Deinitialize()</td></tr>
+<tr><td>12</td><td>❌ VIOLATION</td><td><a href="#issue-12">rule_53 - Handler Registration Order in Initialize/Deinitialize</a></td><td>AVOutputTV.cpp</td><td>291</td><td>IARM handlers are registered in the constructor, before TvInit() in Initialize()</td></tr>
+<tr><td>13</td><td>❌ VIOLATION</td><td><a href="#issue-13">rule_54 - Use Core::ERROR_* for Handler Failure Codes</a></td><td>AVOutputTV.cpp</td><td>6033</td><td>set2PointWB handler returns raw -1 instead of a Core::ERROR_* code</td></tr>
+<tr><td>14</td><td>❌ VIOLATION</td><td><a href="#issue-14">rule_58 - JSON-RPC Handlers Are Re-entrant Safe</a></td><td>AVOutputTVHelper.cpp</td><td>2723</td><td>Handlers modify shared members without locking</td></tr>
+<tr><td>15</td><td>❌ VIOLATION</td><td><a href="#issue-15">rule_61 - Plugin Threads Joined in Deinitialize</a></td><td>AVOutputTV.cpp</td><td>448</td><td>Worker thread is stopped and joined in the destructor, not in Deinitialize()</td></tr>
+<tr><td>16</td><td>❌ VIOLATION</td><td><a href="#issue-16">rule_62 - Deinitialize Pointer Safety</a></td><td>AVOutputTV.cpp</td><td>453</td><td>Static instance pointer is never cleared and callbacks can run after Deinitialize()</td></tr>
+<tr><td>17</td><td>❌ VIOLATION</td><td><a href="#issue-17">rule_68 - No Deprecated JSON-RPC APIs</a></td><td>AVOutputTV.cpp</td><td>27</td><td>Legacy untyped JsonObject Register / sendNotify / returnResponse helpers are used</td></tr>
+<tr><td>18</td><td>9 WARNING</td><td><a href="#issue-18">rule_03 - Module.h Uses #pragma once</a></td><td>Module.h</td><td>20</td><td>Legacy #ifndef include guard instead of #pragma once</td></tr>
+<tr><td>19</td><td>9 WARNING</td><td><a href="#issue-19">rule_06 - NULL vs nullptr</a></td><td>AVOutputTVHelper.cpp</td><td>2058</td><td>NULL used as null pointer literal</td></tr>
+<tr><td>20</td><td>9 WARNING</td><td><a href="#issue-20">rule_14 - Special Members Deleted (Main Class)</a></td><td>AVOutput.h</td><td>51</td><td>Move constructor and move assignment are not deleted in the main plugin class</td></tr>
+<tr><td>21</td><td>9 WARNING</td><td><a href="#issue-21">rule_49 - Worker Jobs Safe After Deinitialize</a></td><td>AVOutputTVHelper.cpp</td><td>3805</td><td>Queued worker jobs can run after Deinitialize()/TvTerm()</td></tr>
+<tr><td>22</td><td>9 WARNING</td><td><a href="#issue-22">rule_50 - File Descriptors / Sockets Wrapped in RAII</a></td><td>UtilsSearchRDKProfile.h</td><td>48</td><td>Raw fopen/fgets used instead of a Thunder file abstraction</td></tr>
+<tr><td>23</td><td>9 WARNING</td><td><a href="#issue-23">rule_55 - Event Constants and Typed JSON Payloads</a></td><td>AVOutputTV.cpp</td><td>178</td><td>Event names are inline string literals</td></tr>
+<tr><td>24</td><td>9 WARNING</td><td><a href="#issue-24">rule_70 - No printf - Use Thunder Tracing</a></td><td>AVOutputTVHelper.cpp</td><td>338</td><td>printf / std::cout used instead of Thunder tracing</td></tr>
+<tr><td>25</td><td>9 WARNING</td><td><a href="#issue-25">rule_74 - Prefer WorkerPool for Background Tasks</a></td><td>AVOutputTV.cpp</td><td>448</td><td>Raw std::thread used for the background parameter-update queue</td></tr>
+<tr><td>26</td><td>9 WARNING</td><td><a href="#issue-26">rule_82 - No sleep() in Plugin Code</a></td><td>UtilsIarm.h</td><td>70</td><td>usleep() retry loop in the IARM init helper</td></tr>
+<tr><td>27</td><td>4 SUGGESTION</td><td><a href="#issue-27">rule_34 - Startmode Declaration</a></td><td>AVOutput.conf.in</td><td>3</td><td>No startmode; only the legacy autostart is declared</td></tr>
+<tr><td>28</td><td>4 SUGGESTION</td><td><a href="#issue-28">rule_36 - No Hardcoded Numeric Tuning Parameters</a></td><td>UtilsIarm.h</td><td>72</td><td>Retry count and delay are hardcoded</td></tr>
+<tr><td>29</td><td>4 SUGGESTION</td><td><a href="#issue-29">rule_39 - #pragma once</a></td><td>AVOutputTV.h</td><td>20</td><td>Headers use #ifndef include guards</td></tr>
+<tr><td>30</td><td>4 SUGGESTION</td><td><a href="#issue-30">rule_44 - CMake NAMESPACE Variable</a></td><td>CMakeLists.txt</td><td>93</td><td>Install path hardcodes the wpeframework directory</td></tr>
+</tbody></table>
+<hr>
+<h2>Detailed Findings</h2>
+<h3 id="issue-1">Issue 1</h3>
+<p><strong>rule_15 - Plugin Metadata Registration</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutput.cpp</code> | <strong>Line:</strong> 32</p>
+<p><strong>What's wrong:</strong><br>The plugin class is registered twice in the same file through two different mechanisms (Plugin::Metadata and SERVICE_REGISTRATION). The rule allows SERVICE_REGISTRATION in the main plugin file only for a different class (for example an out-of-process implementation class).</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutput.cpp:32
+static Plugin::Metadata&lt;Plugin::AVOutput&gt; metadata(
+        API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH,
+        {}, {}, {});
+
+// AVOutput.cpp:44
+SERVICE_REGISTRATION(AVOutput, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Keep exactly one registration for the plugin class
+static Plugin::Metadata&lt;Plugin::AVOutput&gt; metadata(
+        API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH,
+        {}, {}, {});
+// SERVICE_REGISTRATION(AVOutput, ...) removed</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-2">Issue 2</h3>
+<p><strong>rule_22 - Observer Cleanup in Deinitialize</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 500</p>
+<p><strong>What's wrong:</strong><br>Initialize() registers five TV HAL change callbacks and passes this as user data. Deinitialize() only calls TvTerm(); nothing removes those callbacks. After Deinitialize() the HAL can still call back into the plugin object.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:500-524 (Initialize)
+ret = RegisterVideoFormatChangeCB(&amp;callbackData);
+ret = RegisterVideoContentChangeCB(&amp;ConcallbackData);
+ret = RegisterVideoResolutionChangeCB(&amp;RescallbackData);
+ret = RegisterVideoFrameRateChangeCB(&amp;FpscallbackData);
+ret = RegisterVideoSourceChangeCB(&amp;SrccallbackData);
+
+// AVOutputTV.cpp:547-563 (Deinitialize) - only TvTerm(), no unregistration</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">void AVOutputTV::Deinitialize()
+{
+    // Unregister the five HAL callbacks first (use the HAL&#39;s unregister/clear API), then:
+    tvError_t ret = TvTerm();
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-3">Issue 3</h3>
+<p><strong>rule_24 - Constructor Must Be Empty</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 291</p>
+<p><strong>What's wrong:</strong><br>The AVOutputTV constructor does real work: it connects to the IARM bus and installs event handlers, registers about 120 JSON-RPC methods, and starts the parameter-update worker thread. All of this belongs in Initialize(). Only logging is exempt from this rule.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:291
+InitializeIARM();
+// AVOutputTV.cpp:293 ...
+registerMethod(&quot;getBacklight&quot;, &amp;AVOutputTV::getBacklight, this);
+// AVOutputTV.cpp:448
+workerThread = std::thread(&amp;AVOutputTV::paramUpdateWorker, this);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">AVOutputTV::AVOutputTV()
+    : m_currentHdmiInResoluton(dsVIDEO_PIXELRES_1920x1080)
+    , m_videoZoomMode(tvDisplayMode_NORMAL)
+    , m_isDisabledHdmiIn4KZoom(false)
+    , rfc_caller_id(nullptr)
+{
+    // empty - InitializeIARM(), registerMethod(...) and thread start move to Initialize()
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-4">Issue 4</h3>
+<p><strong>rule_26 - Initialize Returns Error String on Failure</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 490</p>
+<p><strong>What's wrong:</strong><br>AVOutput::Initialize() calls DEVICE_TYPE::Initialize(), which returns void. When TvInit() fails the error is only logged, so Thunder sees a successful activation of a plugin whose platform layer is not initialised.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:490
+ret = TvInit();
+if(ret != tvERROR_NONE) {
+    LOGERR(&quot;Platform Init failed, ret: %s \n&quot;, getErrorString(ret).c_str());
+}
+// AVOutput.cpp:71-74
+DEVICE_TYPE::Initialize();
+LOGINFO(&quot;Exit\n&quot;);
+return (service != nullptr ? _T(&quot;&quot;) : _T(&quot;No service.&quot;));</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Make DEVICE_TYPE::Initialize() return a status (or error string) and propagate it
+string error = DEVICE_TYPE::Initialize();
+if (!error.empty()) {
+    return error;   // e.g. &quot;Platform Init failed&quot;
+}
+return string();</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-5">Issue 5</h3>
+<p><strong>rule_28 - No Plugin Lifecycle Dependencies in Destructor</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 465</p>
+<p><strong>What's wrong:</strong><br>The destructor stops and joins the worker thread and calls DeinitializeIARM(), which calls IARM_Bus_RemoveEventHandler(). These are unregister/teardown steps tied to the plugin lifecycle and must be done in Deinitialize().</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:453-466
+AVOutputTV :: ~AVOutputTV()
+{
+    { std::lock_guard&lt;std::mutex&gt; lock(queueMutex); shouldStopWorker = true; }
+    queueCondition.notify_all();
+    if (workerThread.joinable()) { workerThread.join(); }
+    DeinitializeIARM();
+}</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">AVOutputTV::~AVOutputTV()
+{
+    // empty - worker stop/join and DeinitializeIARM() are done in Deinitialize()
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-6">Issue 6</h3>
+<p><strong>rule_29 - JSON-RPC Register/Unregister Pairing</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 293</p>
+<p><strong>What's wrong:</strong><br>About 120 handlers are registered with the registerMethod macro (Register&lt;JsonObject, JsonObject&gt;). No Unregister() call exists anywhere in the plugin, so the handlers stay bound to plugin members after Deinitialize().</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:27
+#define registerMethod(...) for (uint8_t i = 1; GetHandler(i); i++) GetHandler(i)-&gt;Register&lt;JsonObject, JsonObject&gt;(__VA_ARGS__)
+// AVOutputTV.cpp:293
+registerMethod(&quot;getBacklight&quot;, &amp;AVOutputTV::getBacklight, this);
+// no matching Unregister(...) in Deinitialize()</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Register in Initialize(), unregister in Deinitialize()
+void AVOutputTV::Deinitialize()
+{
+    for (uint8_t i = 1; GetHandler(i); i++) {
+        GetHandler(i)-&gt;Unregister(&quot;getBacklight&quot;);
+        // ... one per registered method
+    }
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-7">Issue 7</h3>
+<p><strong>rule_31 - No Hardcoded Paths</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.h</code> | <strong>Line:</strong> 91</p>
+<p><strong>What's wrong:</strong><br>Filesystem locations are written directly in code. They should come from plugin configuration or Thunder path APIs. The same pattern appears in the included helper UtilsSearchRDKProfile.h.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.h:91
+CIniFile(const std::string &amp; filename, const std::string &amp; filepath = &quot;/etc/&quot; )
+// AVOutputTV.h:93
+opt_path = &quot;/opt/panel/&quot;;
+// UtilsSearchRDKProfile.h:43
+const char* devPropPath = &quot;/etc/device.properties&quot;;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Pass the locations in from configuration
+CIniFile(const std::string&amp; filename, const std::string&amp; defaultDir, const std::string&amp; overrideDir)
+{
+    opt_path = overrideDir + filename;   // value read from the plugin config
+    m_path   = defaultDir + filename;
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-8">Issue 8</h3>
+<p><strong>rule_37 - CXX_STANDARD Uses Thunder Variable</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>CMakeLists.txt</code> | <strong>Line:</strong> 80</p>
+<p><strong>What's wrong:</strong><br>The C++ standard is hardcoded, which bypasses the standard chosen by the Thunder build system.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp"># CMakeLists.txt:33
+set (CMAKE_CXX_STANDARD 11)
+# CMakeLists.txt:79-81
+set_target_properties(${MODULE_NAME} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED YES)</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">set_target_properties(${MODULE_NAME} PROPERTIES
+        CXX_STANDARD ${CXX_STD}
+        CXX_STANDARD_REQUIRED YES)</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-9">Issue 9</h3>
+<p><strong>rule_41 - Reverse-Order Cleanup</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 547</p>
+<p><strong>What's wrong:</strong><br>Initialize() installs HAL callbacks and then syncs state; the constructor adds IARM handlers, JSON-RPC handlers and the worker thread. Deinitialize() only calls TvTerm(), so nothing is released in reverse order. Teardown happens later and in the wrong place (destructor).</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:547-563
+void AVOutputTV::Deinitialize()
+{
+    tvError_t ret = tvERROR_NONE;
+    ret = TvTerm();
+    ...
+}</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">void AVOutputTV::Deinitialize()
+{
+    // 1. unregister HAL callbacks      (reverse of Initialize)
+    // 2. stop and join the worker
+    // 3. remove IARM handlers
+    // 4. unregister JSON-RPC methods
+    // 5. TvTerm()
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-10">Issue 10</h3>
+<p><strong>rule_47 - Shared State Protected by CriticalSection</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 233</p>
+<p><strong>What's wrong:</strong><br>The IARM event handlers write m_isDisabledHdmiIn4KZoom and m_currentHdmiInResoluton, and the HAL film-maker callback writes the static filmMakerMode. Handler threads read them (for example getUserSelectedAspectRatio, setAspectRatioZoomSettings, getVideoContentType) without any lock. m_videoZoomMode is written from handlers and read from the IARM thread, also unprotected.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:233 and :241 (IARM thread)
+AVOutputTV::instance-&gt;m_isDisabledHdmiIn4KZoom = false;
+AVOutputTV::instance-&gt;m_isDisabledHdmiIn4KZoom = true;
+// AVOutputTV.cpp:257 (IARM thread)
+AVOutputTV::instance-&gt;m_currentHdmiInResoluton = eventData-&gt;data.hdmi_in_video_mode.resolution.pixelResolution;
+// AVOutputTV.cpp:193 (HAL callback thread) / :6645 (JSON-RPC thread)
+filmMakerMode = fmmMode;
+response[&quot;currentFilmMakerMode&quot;] = filmMakerMode;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">Core::CriticalSection _adminLock;   // member
+
+{ Core::SafeSyncType&lt;Core::CriticalSection&gt; scopedLock(_adminLock);
+  AVOutputTV::instance-&gt;m_isDisabledHdmiIn4KZoom = false; }</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-11">Issue 11</h3>
+<p><strong>rule_52 - interface-&gt;Register/Unregister Pairing</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 6657</p>
+<p><strong>What's wrong:</strong><br>IARM event handlers are registered through IARM_Bus_RegisterEventHandler() but removal happens only through DeinitializeIARM(), which is called from the destructor. Deinitialize() never removes them, so they can fire after TvTerm() with a stale plugin pointer.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:6657-6661 (called from the constructor, line 291)
+if (Utils::IARM::init()) {
+    IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_STATUS, dsHdmiStatusEventHandler) );
+    IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_IN_VIDEO_MODE_UPDATE, dsHdmiVideoModeEventHandler) );
+}</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Register in Initialize(), after TvInit()
+InitializeIARM();
+// Remove in Deinitialize(), before TvTerm()
+DeinitializeIARM();</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-12">Issue 12</h3>
+<p><strong>rule_53 - Handler Registration Order in Initialize/Deinitialize</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 291</p>
+<p><strong>What's wrong:</strong><br>Notification handlers must be registered after the thing they observe is fully set up. The HDMI IARM handlers call SetAspectRatio() on the TV HAL, but they are installed in the constructor, before Initialize() runs TvInit(). An event arriving in that window drives an uninitialised HAL.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:291 (constructor)
+InitializeIARM();
+// AVOutputTV.cpp:490 (Initialize, later)
+ret = TvInit();</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Initialize():
+ret = TvInit();
+// ... HAL callbacks ...
+InitializeIARM();   // observers last</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-13">Issue 13</h3>
+<p><strong>rule_54 - Use Core::ERROR_* for Handler Failure Codes</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 6033</p>
+<p><strong>What's wrong:</strong><br>Every other path in this handler returns through returnResponse(), which yields Core::ERROR_NONE or Core::ERROR_GENERAL. Three paths return the raw literal -1, which becomes 0xFFFFFFFF in a uint32_t.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:6033 / :6039 / :6045  (uint32_t AVOutputTV::set2PointWB)
+LOGWARN(&quot;%s: GetCurrentVideoSource( ) Failed \n&quot;,__FUNCTION__);
+return -1;
+...
+return -1;
+...
+return -1;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">LOGWARN(&quot;%s: GetCurrentVideoSource( ) Failed \n&quot;,__FUNCTION__);
+returnResponse(false);   // maps to Core::ERROR_GENERAL</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-14">Issue 14</h3>
+<p><strong>rule_58 - JSON-RPC Handlers Are Re-entrant Safe</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 2723</p>
+<p><strong>What's wrong:</strong><br>JSON-RPC handlers can run concurrently on several Thunder worker threads. setAspectRatioZoomSettings() (and the zoom reset path) assign m_videoZoomMode with no lock while the IARM thread and other handlers read it. The static support maps are also filled from getPqParamIndex() while handlers read them.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTVHelper.cpp:2723
+// backup the selected zoom mode
+m_videoZoomMode = mode;
+// AVOutputTVHelper.cpp:84
+supportedSourcemap[info.rangeVector[i]] = stoi(info.indexVector[i]);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">{
+    Core::SafeSyncType&lt;Core::CriticalSection&gt; scopedLock(_adminLock);
+    m_videoZoomMode = mode;
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-15">Issue 15</h3>
+<p><strong>rule_61 - Plugin Threads Joined in Deinitialize</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 448</p>
+<p><strong>What's wrong:</strong><br>The parameter-update worker thread is started in the constructor and only joined in ~AVOutputTV(). Deinitialize() returns while the thread is still running and still executing queued HAL/TR-181 updates after TvTerm().</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:448
+workerThread = std::thread(&amp;AVOutputTV::paramUpdateWorker, this);
+// AVOutputTV.cpp:459-463 (destructor)
+if (workerThread.joinable()) {
+    workerThread.join();
+}</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">void AVOutputTV::Deinitialize()
+{
+    { std::lock_guard&lt;std::mutex&gt; lock(queueMutex); shouldStopWorker = true; }
+    queueCondition.notify_all();
+    if (workerThread.joinable()) { workerThread.join(); }
+    // ... then TvTerm()
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-16">Issue 16</h3>
+<p><strong>rule_62 - Deinitialize Pointer Safety</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 453</p>
+<p><strong>What's wrong:</strong><br>AVOutputTV::instance is set in the constructor and never set back to nullptr. IARM handlers and HAL callbacks use it (or this) and are still active after Deinitialize() has called TvTerm(). Nothing guarantees they cannot touch the object or the terminated HAL after Deinitialize().</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:287
+AVOutputTV::instance = this;
+// AVOutputTV.cpp:453-466 - destructor never does: AVOutputTV::instance = nullptr;
+// AVOutputTV.cpp:552 - TvTerm() while callbacks/handlers are still installed</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">void AVOutputTV::Deinitialize()
+{
+    // stop callbacks and the worker first, then
+    AVOutputTV::instance = nullptr;
+    TvTerm();
+}</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-17">Issue 17</h3>
+<p><strong>rule_68 - No Deprecated JSON-RPC APIs</strong><br>
+<strong>Status:</strong> ❌ VIOLATION | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 27</p>
+<p><strong>What's wrong:</strong><br>The plugin registers handlers with Register&lt;JsonObject, JsonObject&gt;, sends events with the sendNotify macro and returns through returnResponse. UtilsJsonRpc.h marks these &quot;DO NOT USE THIS&quot; and points to generated typed JSON-RPC interfaces.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:27
+#define registerMethod(...) for (uint8_t i = 1; GetHandler(i); i++) GetHandler(i)-&gt;Register&lt;JsonObject, JsonObject&gt;(__VA_ARGS__)
+// AVOutputTV.cpp:178
+sendNotify(&quot;onVideoFormatChanged&quot;, response);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Define the API in a ThunderInterfaces .json / COM interface and use the generated
+// Exchange::JAVOutput::Register(*this, this) and its generated event methods.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-18">Issue 18</h3>
+<p><strong>rule_03 - Module.h Uses #pragma once</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>Module.h</code> | <strong>Line:</strong> 20</p>
+<p><strong>What's wrong:</strong><br>Module.h uses a classic #ifndef/#define/#endif guard.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// Module.h:20
+#ifndef MODULE_PLUGIN_AVOUTPUT_H
+#define MODULE_PLUGIN_AVOUTPUT_H</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">#pragma once</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-19">Issue 19</h3>
+<p><strong>rule_06 - NULL vs nullptr</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 2058</p>
+<p><strong>What's wrong:</strong><br>NULL is used as the pointer literal in getSaveConfig() and in the included helper. Use nullptr. (The NULL inside the commented-out block at line 2139 and inside log strings is ignored.)</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTVHelper.cpp:2058 (also 2065, 2073, 2083, 2096, 2112, 2125)
+char *token = NULL;
+// UtilsSearchRDKProfile.h:44, :49, :56
+char line[256], *rdkProfile = NULL;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">char *token = nullptr;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-20">Issue 20</h3>
+<p><strong>rule_14 - Special Members Deleted (Main Class)</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>AVOutput.h</code> | <strong>Line:</strong> 51</p>
+<p><strong>What's wrong:</strong><br>Only the copy constructor and copy assignment are deleted. The rule asks for all four special members to be deleted explicitly.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutput.h:51-52
+AVOutput(const AVOutput&amp;) = delete;
+AVOutput&amp; operator=(const AVOutput&amp;) = delete;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">AVOutput(const AVOutput&amp;) = delete;
+AVOutput&amp; operator=(const AVOutput&amp;) = delete;
+AVOutput(AVOutput&amp;&amp;) = delete;
+AVOutput&amp; operator=(AVOutput&amp;&amp;) = delete;</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-21">Issue 21</h3>
+<p><strong>rule_49 - Worker Jobs Safe After Deinitialize</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 3805</p>
+<p><strong>What's wrong:</strong><br>The worker drains all queued jobs before exiting and is only told to stop from the destructor. Jobs call HAL and TR-181 APIs and use plugin members, so after Deinitialize() has run TvTerm() they can still execute against a terminated HAL.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTVHelper.cpp:3817-3819
+if (shouldStopWorker &amp;&amp; paramUpdateQueue.empty()) {
+    break;
+}
+// jobs are only cancelled from ~AVOutputTV(), not Deinitialize()</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// In Deinitialize(): set shouldStopWorker, clear paramUpdateQueue, join the worker, then TvTerm()</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-22">Issue 22</h3>
+<p><strong>rule_50 - File Descriptors / Sockets Wrapped in RAII</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>UtilsSearchRDKProfile.h</code> | <strong>Line:</strong> 48</p>
+<p><strong>What's wrong:</strong><br>searchRdkProfile() opens the file with raw fopen(). The handle is closed on the normal path, so it is not leaked. Thunder provides Core::File for this, and the rule prefers it over raw system calls.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// UtilsSearchRDKProfile.h:48
+file = fopen(devPropPath, &quot;r&quot;);
+...
+// UtilsSearchRDKProfile.h:73
+fclose(file);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">Core::File file(devPropPath);
+if (file.Open(true) == true) {
+    // read lines with file.Read(...) ; closed automatically by the destructor
+}</code></pre>
+<p><strong>Note:</strong> Downgraded from VIOLATION: fclose(file) at UtilsSearchRDKProfile.h:73 runs on every path after a successful fopen (the only early return, line 51, happens when fopen failed), so there is no leak.</p>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-23">Issue 23</h3>
+<p><strong>rule_55 - Event Constants and Typed JSON Payloads</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 178</p>
+<p><strong>What's wrong:</strong><br>Event names are passed to sendNotify() as string literals and are not defined as named constants.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:178, 194, 201, 208, 215 ; AVOutputTVHelper.cpp:2714
+sendNotify(&quot;onVideoFormatChanged&quot;, response);
+sendNotify(&quot;gameModeEvent&quot;, response);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">static constexpr const char* EVT_VIDEO_FORMAT_CHANGED = &quot;onVideoFormatChanged&quot;;
+sendNotify(EVT_VIDEO_FORMAT_CHANGED, response);</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-24">Issue 24</h3>
+<p><strong>rule_70 - No printf - Use Thunder Tracing</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>AVOutputTVHelper.cpp</code> | <strong>Line:</strong> 338</p>
+<p><strong>What's wrong:</strong><br>Direct console output is used in several places. Use TRACE / TRACE_L1 or the plugin logging macros.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTVHelper.cpp:338, 4333, 4365, 4372, 4388
+printf(&quot;(%s):get supported mode is failed\n&quot;, __func__);
+// AVOutputTV.h:99, 103
+std::cout &lt;&lt; &quot;AVOutput : Using &quot; &lt;&lt; m_path &lt;&lt;std::endl;
+// UtilsSearchRDKProfile.h:50, 58, 70
+printf(&quot;File not found issue \n&quot;);</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">LOGERR(&quot;(%s):get supported mode is failed&quot;, __func__);</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-25">Issue 25</h3>
+<p><strong>rule_74 - Prefer WorkerPool for Background Tasks</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>AVOutputTV.cpp</code> | <strong>Line:</strong> 448</p>
+<p><strong>What's wrong:</strong><br>A dedicated std::thread with its own queue, mutex and condition variable is used for deferred parameter updates. A Core::WorkerPool job takes part in Thunder shutdown and needs no manual thread management.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.cpp:448 ; AVOutputTV.h:558
+workerThread = std::thread(&amp;AVOutputTV::paramUpdateWorker, this);
+std::thread workerThread;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Submit each update as a Core::IDispatch job:
+Core::IWorkerPool::Instance().Submit(Core::ProxyType&lt;Core::IDispatch&gt;(job));</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-26">Issue 26</h3>
+<p><strong>rule_82 - No sleep() in Plugin Code</strong><br>
+<strong>Status:</strong> 9 WARNING | <strong>File:</strong> <code>UtilsIarm.h</code> | <strong>Line:</strong> 70</p>
+<p><strong>What's wrong:</strong><br>Utils::IARM::init() retries with usleep(100000) up to 20 times. It is called from the constructor through InitializeIARM(), so plugin construction can block for about 2 seconds on a failing bus.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// UtilsIarm.h:70-72
+if(result == false) usleep(100000);
+}while((result == false) &amp;&amp; (retryCount++ &lt; 20));</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Connect once, or retry from a Core::WorkerPool timer job instead of sleeping inline.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-27">Issue 27</h3>
+<p><strong>rule_34 - Startmode Declaration</strong><br>
+<strong>Status:</strong> 4 SUGGESTION | <strong>File:</strong> <code>AVOutput.conf.in</code> | <strong>Line:</strong> 3</p>
+<p><strong>What's wrong:</strong><br>startmode is not declared. The plugin uses namespace WPEFramework (pre-Thunder 5.0) and has autostart, which is the legacy equivalent, so this is a suggestion.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp"># AVOutput.conf.in:3
+autostart = &quot;false&quot;</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">startmode = &quot;Deactivated&quot;</code></pre>
+<p><strong>Note:</strong> Downgraded from VIOLATION: the plugin is pre-Thunder 5.0 (namespace WPEFramework, AVOutput.h:45) and AVOutput.conf.in:3 declares autostart, the valid legacy equivalent.</p>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-28">Issue 28</h3>
+<p><strong>rule_36 - No Hardcoded Numeric Tuning Parameters</strong><br>
+<strong>Status:</strong> 4 SUGGESTION | <strong>File:</strong> <code>UtilsIarm.h</code> | <strong>Line:</strong> 72</p>
+<p><strong>What's wrong:</strong><br>The IARM connect retry count (20) and delay (100000 microseconds) are tuning values and should come from configuration.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// UtilsIarm.h:70-72
+if(result == false) usleep(100000);
+}while((result == false) &amp;&amp; (retryCount++ &lt; 20));</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">// Add Config fields (for example IarmRetries, IarmRetryDelayMs) and use them here.</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-29">Issue 29</h3>
+<p><strong>rule_39 - #pragma once</strong><br>
+<strong>Status:</strong> 4 SUGGESTION | <strong>File:</strong> <code>AVOutputTV.h</code> | <strong>Line:</strong> 20</p>
+<p><strong>What's wrong:</strong><br>Module.h, AVOutput.h, AVOutputBase.h, AVOutputSTB.h and AVOutputTV.h all use #ifndef/#define/#endif guards (line 20 in each).</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp">// AVOutputTV.h:20
+#ifndef AVOutputTV_H
+#define AVOutputTV_H</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">#pragma once</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h3 id="issue-30">Issue 30</h3>
+<p><strong>rule_44 - CMake NAMESPACE Variable</strong><br>
+<strong>Status:</strong> 4 SUGGESTION | <strong>File:</strong> <code>CMakeLists.txt</code> | <strong>Line:</strong> 93</p>
+<p><strong>What's wrong:</strong><br>Targets use ${NAMESPACE}, but the install destination is a fixed lib/wpeframework/plugins path.</p>
+<p><strong>Code found:</strong></p><pre><code class="language-cpp"># CMakeLists.txt:92-93
+install(TARGETS ${MODULE_NAME}
+    DESTINATION lib/wpeframework/plugins)</code></pre>
+<p><strong>Fix:</strong></p><pre><code class="language-cpp">install(TARGETS ${MODULE_NAME}
+    DESTINATION lib/${STORAGE_DIRECTORY}/plugins)</code></pre>
+<p><a class="back-link" href="#issue-summary">⬆ Back to Issue Summary</a></p>
+<hr>
+<h2>Skipped Rules</h2>
+<table><thead><tr><th>Rule</th><th>Reason</th></tr></thead><tbody>
+<tr><td>rule_09 - No QueryInterfaceByCallsign as Member</td><td>No QueryInterfaceByCallsign() calls</td></tr>
+<tr><td>rule_17 - IShell AddRef in Initialize</td><td>No stored IShell* member</td></tr>
+<tr><td>rule_18 - IShell Release in Deinitialize</td><td>No stored IShell* member</td></tr>
+<tr><td>rule_20 - Root&lt;T&gt;() nullptr Check</td><td>Initialize() does not call Root&lt;T&gt;()</td></tr>
+<tr><td>rule_21 - Root&lt;T&gt;() Release in Deinitialize</td><td>Plugin does not call Root&lt;T&gt;()</td></tr>
+<tr><td>rule_23 - SubSystems() Release in Deinitialize</td><td>SubSystems() not used</td></tr>
+<tr><td>rule_25 - service-&gt;Register/Unregister Pairing</td><td>No service-&gt;Register() in Initialize()</td></tr>
+<tr><td>rule_30 - SinkType Pattern for Subscribers</td><td>No IPlugin/COM notification subscribers</td></tr>
+<tr><td>rule_32 - OOP Connection Termination</td><td>Plugin is in-process (no PLUGIN_AVOUTPUT_MODE = Local, no outofprocess = true)</td></tr>
+<tr><td>rule_33 - connectionId Checked</td><td>Plugin is in-process</td></tr>
+<tr><td>rule_35 - Config Core::JSON::Container</td><td>No configuration class</td></tr>
+<tr><td>rule_38 - COM Methods Return Core::hresult</td><td>No COM interface declared by the plugin</td></tr>
+<tr><td>rule_42 - Observer Locking</td><td>No observer list in the plugin</td></tr>
+<tr><td>rule_51 - Config Errors Return Non-Empty</td><td>No configuration parsing</td></tr>
+<tr><td>rule_66 - Config Completeness and Resource Cleanup</td><td>No Config class</td></tr>
+<tr><td>rule_67 - Observer Classes Private and Nested</td><td>No observer classes</td></tr>
+<tr><td>rule_73 - PluginSmartInterfaceType</td><td>No COMRPC proxies to other plugins</td></tr>
+<tr><td>rule_75 - No COMRPC Call Inside COMRPC Notification</td><td>No COMRPC notifications</td></tr>
+<tr><td>rule_80 - Use ProxyType for COM Interface Parameters</td><td>No COM interface methods</td></tr>
+<tr><td>rule_85 - JSON-RPC Definitions Library Linked</td><td>No generated JSON-RPC header (interfaces/json/...) is included</td></tr>
+</tbody></table>
+</body></html>
